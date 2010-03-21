@@ -3,21 +3,27 @@ import pycuda.autoinit
 from pycuda import driver
 from pycuda import compiler
 import numpy as np
+import ctypes
+
+class Parameters(ctypes.Structure):
+  _fields_ = [("ih", ctypes.c_float * 4 * 19),
+              ("c", ctypes.c_float * 4 * 19),
+              ("w", ctypes.c_float * 4),
+              ("ho", ctypes.c_float * 4)]
 
 class ANN(object):
   mod = compiler.SourceModule(open("ann_kernels.cu").read())
-  NUM_WEIGHTS = 4
 
   def prepare(self, trainSet, popSize):
     """Prepare for many parallel ANN fitness calculations.
     
-                      len(trainSet[0]) x len(trainSet)
-                  <--     training instances    -->
-                  +-------------------------------+
-     network    w1|block1                         |
-     weights    w2|block2                         |
-    (popSize x  w3|block3                         |
-    NUM_WEIGHTS)  +-------------------------------+
+                         len(trainSet[0]) x len(trainSet)
+                       <--     training instances    -->
+                       +-------------------------------+
+       network       p1|block1                         |
+       params        p2|block2                         |
+      (popSize x     p3|block3                         |
+    sizeof(Params))    +-------------------------------+
      
     @param trainSet: training set
     @type trainSet: list of tuples, one tuple per training instance
@@ -46,26 +52,27 @@ class ANN(object):
     self.popSize = popSize
     
     floatBytes = np.dtype(np.float32).itemsize
-    self.weights = driver.mem_alloc(self.popSize * self.NUM_WEIGHTS * floatBytes)
+    self.params = driver.mem_alloc(
+      self.popSize * ctypes.sizeof(Parameters) * floatBytes
+    )
     self.outputs = driver.mem_alloc(self.popSize * self.trainSize * floatBytes)
 
-  def evaluate(self, weights, returnOutputs=False):
-    """Evaluate several networks (with given weights) on training set.
+  def evaluate(self, params, returnOutputs=False):
+    """Evaluate several networks (with given params) on training set.
     
-    @param weights: network weights
-    @type weights: list of tuples, one tuple per network
+    @param params: network params
+    @type params: list of Parameters
     @param returnOutputs: return network output values (debug)
     @type returnOutputs: bool, default False
     
     @return output matrix if returnOutputs=True, else None
     """
-    weightsMat = np.asmatrix(weights, np.float32)
-    weightsShape = (self.popSize, self.NUM_WEIGHTS)
-    if weightsMat.shape != weightsShape:
-      raise ValueError("Weights shape should be %r (was %r)" % (
-        weightsShape, weightsMat.shape))
+    if self.popSize != len(params):
+      raise ValueError("Need %d Parameter structures (provided %d)" % (
+        self.popSize, len(params)))
     
-    driver.memcpy_htod(self.weights, weightsMat)
+    paramArrayType = Parameters * len(params)
+    driver.memcpy_htod(self.params, paramArrayType(*params))
 
     # TODO: remove
     driver.memset_d8(self.outputs, 0xcc, self.popSize * self.trainSize * 4)
@@ -73,7 +80,7 @@ class ANN(object):
     self.evaluateKernel.prepared_call((self.popSize, 1),
                                       self.trainSet,
                                       self.trainSize,
-                                      self.weights,
+                                      self.params,
                                       self.popSize,
                                       self.outputs)
     
@@ -94,6 +101,8 @@ if __name__ == "__main__":
   popSize = 10
   a.prepare(trainSet, popSize)
 
-  weights = [(1, 2, 3, 4)] * 10
-  outputs = a.evaluate(weights, returnOutputs=True)
+  p = Parameters()
+  p.ho = (ctypes.c_float * 4)(*([1] * 4))
+  params = [p] * 10
+  outputs = a.evaluate(params, returnOutputs=True)
   print outputs
