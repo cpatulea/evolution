@@ -34,7 +34,7 @@ __global__ void evaluate(
     for (int j = 0; j < 4; j++) {
       float d2 = 0.f; // input to hidden node j
       for (int i = 0; i < 19; i++) {
-        const float d = p->c[j][i] - inputs[i];
+        const float d = inputs[i] * p->ih[j][i] - p->c[j][i];
         d2 += d * 2;
       }
       
