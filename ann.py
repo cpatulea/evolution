@@ -27,15 +27,19 @@ class ANN(object):
     # Avoid Function.__call__ overhead
     self.evaluateKernel = self.mod.get_function("evaluate")
     self.evaluateKernel.prepare(
-      (np.intp, np.uint32, np.intp, np.uint32, np.uint32, np.intp),
+      (np.intp, np.uint32, np.intp, np.uint32, np.intp),
       block=(popSize, 1, 1)
     )
 
-    # Training set does not change across network evaluations
-    # TODO: Align each instance on 128-byte boundary?? (ndarray.strides or
-    # driver.mem_alloc_pitch)
+    # Store training set in column-major order so that fetches for the same
+    # input feature across instances occur at consecutive memory addresses.
+    # (avoids "Strided Accesses", see CUDA Best Practices Guide section 3.2.1.4)
+    # TODO: Align each feature on 128-byte boundary?
     self.trainSize = len(trainSet)
-    self.trainSet = driver.to_device(np.asmatrix(trainSet, np.float32))
+    trainSetMat = np.asmatrix(trainSet, np.float32)
+    self.trainSet = driver.to_device(
+      trainSetMat.reshape(tuple(reversed(trainSetMat.shape)), order="F")
+    )
 
     # Pre-allocate various arrays
     # TODO: mem_alloc_pitch?
@@ -43,17 +47,17 @@ class ANN(object):
     
     floatBytes = np.dtype(np.float32).itemsize
     self.weights = driver.mem_alloc(self.popSize * self.NUM_WEIGHTS * floatBytes)
-    self.fitness = driver.mem_alloc(self.popSize * self.trainSize * floatBytes)
+    self.outputs = driver.mem_alloc(self.popSize * self.trainSize * floatBytes)
 
-  def evaluate(self, weights, returnFitness=False):
+  def evaluate(self, weights, returnOutputs=False):
     """Evaluate several networks (with given weights) on training set.
     
     @param weights: network weights
     @type weights: list of tuples, one tuple per network
-    @param returnFitness: return fitness values (debug)
-    @type returnFitness: bool, default False
+    @param returnOutputs: return network output values (debug)
+    @type returnOutputs: bool, default False
     
-    @return fitness matrix if returnFitness=True, else None
+    @return output matrix if returnOutputs=True, else None
     """
     weightsMat = np.asmatrix(weights, np.float32)
     weightsShape = (self.popSize, self.NUM_WEIGHTS)
@@ -64,18 +68,17 @@ class ANN(object):
     driver.memcpy_htod(self.weights, weightsMat)
 
     # TODO: remove
-    driver.memset_d8(self.fitness, 0xcc, self.popSize * self.trainSize * 4)
+    driver.memset_d8(self.outputs, 0xcc, self.popSize * self.trainSize * 4)
     
     self.evaluateKernel.prepared_call((self.popSize, 1),
                                       self.trainSet,
                                       self.trainSize,
                                       self.weights,
-                                      self.NUM_WEIGHTS,
                                       self.popSize,
-                                      self.fitness)
+                                      self.outputs)
     
-    if returnFitness:
-      return driver.from_device(self.fitness,
+    if returnOutputs:
+      return driver.from_device(self.outputs,
                                 shape=(self.popSize, self.trainSize),
                                 dtype=np.float32)
 
@@ -83,13 +86,14 @@ if __name__ == "__main__":
   a = ANN()
   trainSet = [
     (1, 0, 0, 0, 0),
-    (0, 1, 0, 0, 0),
-    (0, 0, 1, 0, 0),
-    (0, 0, 0, 1, 1)
+    (0, 2, 0, 0, 0),
+    (0, 0, 3, 0, 0),
+    (0, 0, 0, 4, 5)
   ]
+
   popSize = 10
   a.prepare(trainSet, popSize)
 
   weights = [(1, 2, 3, 4)] * 10
-  fitness = a.evaluate(weights, returnFitness=True)
-  print fitness
+  outputs = a.evaluate(weights, returnOutputs=True)
+  print outputs
