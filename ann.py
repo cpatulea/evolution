@@ -6,10 +6,10 @@ import numpy as np
 import ctypes
 
 class Parameters(ctypes.Structure):
-  _fields_ = [("ih", ctypes.c_float * 4 * 19),
-              ("c", ctypes.c_float * 4 * 19),
-              ("w", ctypes.c_float * 4),
-              ("ho", ctypes.c_float * 4)]
+  _fields_ = [("ih", 4 * (19 * ctypes.c_float)),
+              ("c", 4 * (19 * ctypes.c_float)),
+              ("w", 4 * ctypes.c_float),
+              ("ho", 4 * ctypes.c_float)]
 
 class ANN(object):
   mod = compiler.SourceModule(open("ann_kernels.cu").read())
@@ -92,17 +92,29 @@ class ANN(object):
 if __name__ == "__main__":
   a = ANN()
   trainSet = [
-    (1, 0, 0, 0, 0),
-    (0, 2, 0, 0, 0),
-    (0, 0, 3, 0, 0),
-    (0, 0, 0, 4, 5)
+    (1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+    (0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+    (0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+    (0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5)
   ]
 
   popSize = 10
   a.prepare(trainSet, popSize)
 
   p = Parameters()
-  p.ho = (ctypes.c_float * 4)(*([1] * 4))
+  for i in range(19):
+    p.ih[0][i] = 1.0
+    p.ih[1][i] = p.ih[2][i] = p.ih[3][i] = 0.0
+
+    p.c[0][i] = 0.0
+    p.c[1][i] = p.c[2][i] = p.c[3][i] = 0.0
+
+  p.w[0] = 1.0
+  p.w[1] = p.w[2] = p.w[3] = 0.0
+  
+  p.ho[0] = 1.0
+  p.ho[1] = p.ho[2] = p.ho[3] = 0.0
+
   params = [p] * 10
   outputs = a.evaluate(params, returnOutputs=True)
   print outputs

@@ -31,6 +31,7 @@ __global__ void evaluate(
     // Calculate network output.
     float output = 0.f;
     
+    // TODO: Make sure this gets unrolled
     for (int j = 0; j < 4; j++) {
       float d2 = 0.f; // input to hidden node j
       for (int i = 0; i < 19; i++) {
