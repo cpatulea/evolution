@@ -4,6 +4,7 @@ from pycuda import driver
 from pycuda import compiler
 import numpy as np
 import ctypes
+import time
 
 class Parameters(ctypes.Structure):
   _fields_ = [("ih", 4 * (19 * ctypes.c_float)),
@@ -88,6 +89,20 @@ class ANN(object):
       return driver.from_device(self.outputs,
                                 shape=(self.popSize, self.trainSize),
                                 dtype=np.float32)
+    else: # wait for kernel to finish executing
+      driver.Context.synchronize()
+
+def timefun(fun, *args, **kwargs):
+  deltas = []
+  for _ in range(kwargs["repeat"]):
+    start = time.clock()
+    fun(*args)
+    end = time.clock()
+    deltas.append(end - start)
+  
+  print "min %.01f, max %.01f, avg %.01f ms" % (
+    min(deltas)*1000.0, max(deltas)*1000.0, sum(deltas)/len(deltas)*1000.0
+  )
 
 if __name__ == "__main__":
   a = ANN()
@@ -96,10 +111,11 @@ if __name__ == "__main__":
     (0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
     (0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
     (0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5)
-  ]
+  ] * (95000/4)
 
-  popSize = 10
-  a.prepare(trainSet, popSize)
+  popSize = 500
+  print "prepare:",
+  timefun(a.prepare, trainSet, popSize, repeat=1)
 
   p = Parameters()
   for i in range(19):
@@ -115,6 +131,7 @@ if __name__ == "__main__":
   p.ho[0] = 1.0
   p.ho[1] = p.ho[2] = p.ho[3] = 0.0
 
-  params = [p] * 10
-  outputs = a.evaluate(params, returnOutputs=True)
-  print outputs
+  params = [p] * popSize
+  print "evaluate:",
+  timefun(a.evaluate, params, repeat=100)
+  #print outputs
