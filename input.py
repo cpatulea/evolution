@@ -3,7 +3,7 @@ import csv
 
 class Input(object):
   def __init__(self, infile):
-    reader = csv.reader(infile, delimiter="\t")
+    reader = csv.reader(open(infile), delimiter="\t")
     self.data = list(reader)
     
     self._initIndexes()
@@ -55,5 +55,5 @@ class Input(object):
     return iter(self.data)
 
 if __name__ == "__main__":
-  data = list(Input(open("train.tsv")))
+  data = list(Input("train.tsv"))
   print len(data[0]), data[0]
