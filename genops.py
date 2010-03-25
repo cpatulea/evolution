@@ -1,4 +1,4 @@
-import ctypes, random, math, ctypes
+import ctypes, random, math, copy
 
 class Parameters(ctypes.Structure):
   _fields_ = [("ih", 4 * (17 * ctypes.c_float)),
@@ -41,17 +41,21 @@ def generateGeneration(oldGen):
     newGen.append(oldGen[0])
     for i in range(499):
         if random.choice([0,1]) == 1:
+            index = int(random.expovariate(-math.log(0.92)))
+            while index >= 500:
+                index = int(random.expovariate(-math.log(0.92)))
             newGen.append(
-                mutate(oldGen[int(random.expovariate(-math.log(0.92)))])
+                mutate(oldGen[index])
             )
         else:
-            print "doing some mating"
-            parent1 = oldGen[int(random.expovariate(-math.log(0.92)))]
-            parent2 = oldGen[int(random.expovariate(-math.log(0.92)))]
+            index = getIndex()
+            parent1 = oldGen[index]
+            index = getIndex()
+            parent2 = oldGen[index]
             while parent2 == parent1:
-                parent2 = oldGen[int(random.expovariate(-math.log(0.92)))]
+                index = getIndex()
+                parent2 = oldGen[index]
             newGen.append(mate(parent1, parent2))
-            print "mating complete"
 
     return newGen
         
@@ -61,16 +65,25 @@ Mutation operator.  Uses MUTATE NODES operator from Montana and Davis.
 @type xman: Parameters (see class Parameters, above)
 @return Mutated Parameters object
 """
-def mutate(xman):
-    
+def mutate(xman):  
+
+    xmanJr = Parameters()
+
+    for i in range(4):
+        for j in range(17):
+            xmanJr.ih[i][j] = xman.ih[i][j]
+            xmanJr.c[i][j] = xman.c[i][j]
+        xmanJr.w[i] = xman.w[i]
+        xmanJr.ho[i] = xman.ho[i]
+
     node = random.randint(0,3)
     for i in range(17):
-        xman.ih[node][i] += getInitialFloat()
-        xman.c[node][i] += getInitialFloat()
-    xman.w[node] += getInitialFloat()
-    xman.ho[node] += getInitialFloat()
+        xmanJr.ih[node][i] += getInitialFloat()
+        xmanJr.c[node][i] += getInitialFloat()
+    xmanJr.w[node] += getInitialFloat()
+    xmanJr.ho[node] += getInitialFloat()
     
-    return xman
+    return xmanJr
 
 """
 Mate operator.  Uses CROSSOVER WEIGHTS operator from Montana and Davis.
@@ -101,4 +114,11 @@ Function for determining initial parameter values
 """
 def getInitialFloat():
     return random.expovariate(1)*random.choice([-1,1])
-        
+
+def getIndex():
+
+    index = int(random.expovariate(-math.log(0.92)))
+    while index >= 500:
+        index = int(random.expovariate(-math.log(0.92)))
+    return index
+
