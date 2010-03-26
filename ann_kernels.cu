@@ -14,8 +14,8 @@ __global__ void evaluate(
   unsigned int popSize,
   float *outputs
 ) {
-  const int trainIndex = threadIdx.x;
-  const int paramsIndex = blockIdx.x;
+  const int trainIndex = blockIdx.x * blockDim.x + threadIdx.x;
+  const int paramsIndex = blockIdx.y;
   const int outputIndex = paramsIndex * trainSize + trainIndex;
   
   if (trainIndex < trainSize && paramsIndex < popSize) {
