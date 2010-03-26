@@ -3,10 +3,11 @@ import pycuda.autoinit
 from pycuda import driver
 from pycuda import compiler
 from pycuda import tools
+from itertools import islice
 import numpy as np
 import ctypes
-import time
 import logging
+from bench import timefun
 
 log = logging.getLogger("ann")
 
@@ -57,7 +58,34 @@ class ANN(object):
       (np.intp, np.uint32, np.intp, np.uint32, np.intp),
       block=self.evaluateBlockDim
     )
+
+    self.nlargestBlockDim = (1, 1, 1)
+    log.info("nlargest kernel block dim: %r", self.nlargestBlockDim)
     
+    self.nlargestGridDim = (1, self.popSize)
+    log.info("nlargest kernel grid dim: %r", self.nlargestGridDim)
+
+    self.nlargestKernel = self.mod.get_function("nlargest")
+    self.nlargestKernel.prepare(
+      (np.intp, np.uint32, np.uint32, np.uint32, np.intp),
+      block=self.nlargestBlockDim
+    )
+
+    # Heap size in each pass is limited by shared memory per multiprocessor.
+    sharedBytesPerBlock = tools.DeviceData().shared_memory
+    floatBytes = np.dtype(np.float32).itemsize
+    log.info("max shared memory per block: %d bytes (%d floats)",
+      sharedBytesPerBlock, sharedBytesPerBlock / floatBytes)
+    
+    self.maxHeapFloats = (sharedBytesPerBlock / floatBytes
+      * 99/100 # max size allocations fail on a GTX 275
+    )
+    maxHeapBytes = self.maxHeapFloats * floatBytes
+
+    log.info("using heap size: %d bytes (%d floats)",
+      maxHeapBytes, self.maxHeapFloats)
+    self.nlargestKernel.set_shared_size(maxHeapBytes)
+
     # Store training set in column-major order so that fetches for the same
     # input feature across instances occur at consecutive memory addresses.
     # (avoids "Strided Accesses", see CUDA Best Practices Guide section 3.2.1.4)
@@ -74,6 +102,8 @@ class ANN(object):
       self.popSize * ctypes.sizeof(Parameters) * floatBytes
     )
     self.outputs = driver.mem_alloc(self.popSize * self.trainSize * floatBytes)
+    
+    self.thresholds = driver.mem_alloc(self.popSize * floatBytes)
 
   def evaluate(self, params, returnOutputs=False):
     """Evaluate several networks (with given params) on training set.
@@ -109,48 +139,85 @@ class ANN(object):
     else: # wait for kernel to finish executing
       driver.Context.synchronize()
 
-def timefun(fun, *args, **kwargs):
-  repeat = kwargs["repeat"]
+  def nlargest(self, n):
+    """Returns the per-individual threshold above which there are n outputs.
+    
+    @param n: number of outputs which should be above the threshold
+    @type params: int
 
-  deltas = []
-  for _ in range(repeat):
-    start = time.clock()
-    ret = fun(*args)
-    end = time.clock()
-    deltas.append(end - start)
-  
-  log.info("%s: min %.01f, avg %.01f, max %.01f ms", fun.func_name,
-    min(deltas)*1000.0, sum(deltas)/len(deltas)*1000.0, max(deltas)*1000.0
-  )
-  
-  if repeat == 1:
-    return ret
+    @return list of thresholds, in order of individuals, which delimit the top
+            n output values
+    """
+    log.info("enter nlargest with n=%d", n)
+
+    passSizes = []
+    while n > 0:
+      nextSize = min(self.maxHeapFloats, n)
+      passSizes.append(nextSize)
+      n -= nextSize
+
+    log.info("pass sizes: %r", passSizes)
+    
+    thresholdsMat = np.ones(shape=(self.popSize,),
+                            dtype=np.float32) * np.inf
+    thresholds = driver.to_device(thresholdsMat)
+
+    for passSize in passSizes:
+      log.debug("begin pass size %d", passSize)
+      self.nlargestKernel.prepared_call(self.nlargestGridDim,
+                                        self.outputs,
+                                        self.trainSize,
+                                        self.popSize,
+                                        passSize,
+                                        thresholds)
+
+      if log.isEnabledFor(logging.DEBUG):
+        thresholdsMat = driver.from_device_like(thresholds, thresholdsMat)
+        log.debug("thresholds: %s", str(thresholdsMat))
+
+    thresholdsMat = driver.from_device_like(thresholds, thresholdsMat)
+    return thresholdsMat
+
+def linterp(a, b, p):
+  return a + (b - a) * p
 
 if __name__ == "__main__":
   import input
   logging.basicConfig(level=logging.DEBUG)
-  np.set_printoptions(precision=3, edgeitems=3, threshold=8)
+  np.set_printoptions(precision=3, edgeitems=3, threshold=20)
 
   a = ANN()
   trainSet = list(input.Input("train.tsv"))
 
   popSize = 500
-  timefun(a.prepare, trainSet, popSize, repeat=1)
+  timefun(a.prepare, trainSet, popSize)
 
-  p = Parameters()
-  for i in range(19):
-    p.ih[0][i] = 1.0
-    p.ih[1][i] = p.ih[2][i] = p.ih[3][i] = 0.0
-
-    p.c[0][i] = 0.0
-    p.c[1][i] = p.c[2][i] = p.c[3][i] = 0.0
-
-  p.w[0] = 1e-4
-  p.w[1] = p.w[2] = p.w[3] = 0.0
+  params = []
   
-  p.ho[0] = 1.0
-  p.ho[1] = p.ho[2] = p.ho[3] = 0.0
+  for paramsIndex in range(popSize):
+    p = Parameters()
+    for i in range(19):
+      p.ih[0][i] = 1.0
+      p.ih[1][i] = p.ih[2][i] = p.ih[3][i] = 0.0
 
-  params = [p] * popSize
-  outputValues = timefun(a.evaluate, params, True, repeat=1)
-  print outputValues
+      p.c[0][i] = 0.0
+      p.c[1][i] = p.c[2][i] = p.c[3][i] = 0.0
+
+    p.w[0] = linterp(1e-4, 1e-5, float(paramsIndex) / popSize)
+    p.w[1] = p.w[2] = p.w[3] = 0.0
+    
+    p.ho[0] = 1.0
+    p.ho[1] = p.ho[2] = p.ho[3] = 0.0
+    
+    params.append(p)
+
+  outputValues = timefun(a.evaluate, params, True)
+  
+  n = len(trainSet) * 20/100
+  thresholds = timefun(a.nlargest, n)
+  
+  for index, (row, threshold) in islice(enumerate(zip(outputValues, thresholds)), 7):
+    numLarger = sum(v >= threshold for v in row)
+    print "i%d: larger target: %d real: %d/%d (%.02f%%)" % (
+      index, n, numLarger, len(trainSet),
+      100.0 * numLarger / len(trainSet))

@@ -1,3 +1,6 @@
+#include <cuda.h>
+#include <math_constants.h>
+
 #define ARRAY_SIZE(array) sizeof(array) / sizeof((array)[0])
 
 struct Parameters {
@@ -44,5 +47,78 @@ __global__ void evaluate(
     }
     
     outputs[outputIndex] = output;
+  }
+}
+
+#define heapparent(i) (((i) - 1) / 2)
+#define heapleft(i)   (2 * ((i) + 1) - 1)
+#define heapright(i)  (2 * ((i) + 1))
+#define swap(a, b)    {float temp = (a); (a) = (b); (b) = temp; }
+
+__device__ void heapreplace(
+  float *heap,
+  unsigned int size,
+  float value
+) {
+  if (value <= heap[0]) {
+    return;
+  }
+  
+  // Replace min (root) with new value.
+  heap[0] = value;
+  
+  // Down-heap.
+  int i = 0;
+  while (heapleft(i) < size) { // stop before leaf level
+    const int left = heapleft(i);
+    const int right = heapright(i);
+    
+    int smallest;
+    if (left < size && heap[left] < heap[i]) {
+      smallest = left;
+    } else {
+      smallest = i;
+    }
+    
+    if (right < size && heap[right] < heap[smallest]) {
+      smallest = right;
+    }
+    
+    if (smallest != i) {
+      swap(heap[smallest], heap[i]);
+      i = smallest;
+    } else {
+      break;
+    }
+  }
+}
+
+__global__ void nlargest(
+  const float *outputs,
+  unsigned int trainSize,
+  unsigned int popSize,
+  unsigned int n,
+  float *thresholds
+) {
+  const int paramsIndex = blockIdx.y;
+  
+  if (paramsIndex < popSize) {
+    const float maxValue = thresholds[paramsIndex];
+    extern __shared__ float heap[/* n */];
+    
+    // First n values sink to the bottom of the heap.
+    for (int i = 0; i < n; i++) {
+      heap[i] = -CUDART_INF_F;
+    }
+    
+    for (int trainIndex = 0; trainIndex < trainSize; trainIndex++) {
+      const int outputIndex = paramsIndex * trainSize + trainIndex;
+      const float output = outputs[outputIndex];
+      if (output < maxValue) {
+        heapreplace(heap, n, output);
+      }
+    }
+    
+    thresholds[paramsIndex] = heap[0];
   }
 }
