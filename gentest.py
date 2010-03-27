@@ -5,7 +5,7 @@ import genplot
 def fitnessTest(generation):
     fitList = []
     for i in generation:
-        fitList.append(i.ih[3][2] + i.c[1][15] - i.w[0] - i.ho[3])
+        fitList.append(i.ih[3][2] - i.c[1][15])
 
     zippedGen = zip(fitList, generation)
     zippedGen.sort()
