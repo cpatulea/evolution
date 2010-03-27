@@ -1,19 +1,20 @@
 #!/usr/bin/python
 import csv
+import string
 
 class Input(object):
   def __init__(self, infile):
-    reader = csv.reader(open(infile), delimiter="\t")
+    reader = csv.reader(map(string.strip, open(infile)), delimiter="\t")
     self.data = list(reader)
     
     self._initIndexes()
 
-    self.remove(8 - 1) # dupe of 2
-    self.remove(10 - 1) # dupe of 1
+    #self.remove(6) # dupe of 1
+    #self.remove(8) # dupe of 0
 
-    self.nominalToNumeric(3 - 1)
-    self.nominalToNumeric(6 - 1)
-    self.nominalToNumeric(19 - 1, key=int)
+    #self.nominalToNumeric(3 - 1)
+    #self.nominalToNumeric(6 - 1)
+    #self.nominalToNumeric(19 - 1, key=int)
     
     self.convertAll(float)
 
