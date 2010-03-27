@@ -39,7 +39,7 @@ __global__ void evaluate(
       float d2 = 0.f; // input to hidden node j
       for (int i = 0; i < 19; i++) {
         const float d = inputs[i] * p->ih[j][i] - p->c[j][i];
-        d2 += d * 2;
+        d2 += d * d;
       }
       
       const float h = __expf(-p->w[j] * d2); // Gaussian RBF
