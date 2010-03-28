@@ -86,6 +86,8 @@ def main():
   
   benchGpuAvg = np.zeros((len(popSizes), len(trainSizes)), np.float32)
   benchGpuStd = np.zeros_like(benchGpuAvg)
+  benchCpuAvg = np.zeros_like(benchGpuAvg)
+  benchCpuStd = np.zeros_like(benchGpuAvg)
   for index, ((popIndex, popSize), (trainIndex, trainSize)) in enumerate(benchParams):
     log.info("benchmarking %.01f%% popSize %d trainSize %d",
       100.0 * index / len(benchParams), popSize, trainSize)
@@ -106,7 +108,9 @@ def main():
     benchGpuStd[popIndex, trainIndex] = std
     
     outputs = a.evaluate(params, returnOutputs=True)
-    stats = timefun(nlargest_cpu, a, n, repeat=10, stats=True)
+    avg, std = stats = timefun(nlargest_cpu, a, n, repeat=10, stats=True)
+    benchCpuAvg[popIndex, trainIndex] = avg
+    benchCpuStd[popIndex, trainIndex] = std
 
 if __name__ == "__main__":
   main()
