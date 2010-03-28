@@ -166,13 +166,13 @@ class ANN(object):
                                       self.params,
                                       self.popSize,
                                       self.outputs)
-    
+
+    driver.Context.synchronize()
+
     if returnOutputs:
       return driver.from_device(self.outputs,
                                 shape=(self.popSize, self.trainSize),
                                 dtype=np.float32)
-    else: # wait for kernel to finish executing
-      driver.Context.synchronize()
 
   def nlargest(self, n):
     """Returns the per-individual threshold above which there are n outputs.
@@ -206,6 +206,8 @@ class ANN(object):
                                         passSize,
                                         self.thresholds)
 
+      driver.Context.synchronize()
+
       if log.isEnabledFor(logging.DEBUG):
         thresholdsMat = driver.from_device_like(self.thresholds, thresholdsMat)
         log.debug("thresholds: %s", str(thresholdsMat))
@@ -227,6 +229,8 @@ class ANN(object):
                                    self.thresholds,
                                    self.counts)
     
+    driver.Context.synchronize()
+
     countsMat = driver.from_device(self.counts,
                                    shape=(self.popSize, self.countBlockDim[0]),
                                    dtype=np.uint32)
