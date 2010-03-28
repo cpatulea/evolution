@@ -6,5 +6,6 @@ def plot():
 
 def addGeneration(fitnessList, genNumber):
     plt.errorbar(genNumber, numpy.average(fitnessList), numpy.std(fitnessList))
+    plt.scatter(genNumber, sum(fitnessList) / len(fitnessList))
     plt.scatter(genNumber, max(fitnessList))
     plt.scatter(genNumber, min(fitnessList))

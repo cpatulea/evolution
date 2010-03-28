@@ -1,10 +1,11 @@
 import ctypes, random, math, copy
+from ann import Parameters
 
-class Parameters(ctypes.Structure):
+"""class Parameters(ctypes.Structure):
   _fields_ = [("ih", 4 * (17 * ctypes.c_float)),
               ("c", 4 * (17 * ctypes.c_float)),
               ("w", 4 * ctypes.c_float),
-              ("ho", 4 * ctypes.c_float)]
+              ("ho", 4 * ctypes.c_float)]"""
 
 """
 Population generation / initializer.  Uses method from Montana and Davis.
@@ -12,20 +13,19 @@ Population generation / initializer.  Uses method from Montana and Davis.
 @type popAmt: integer
 @return a list of Parameters objects, representing the population
 """
-def generatePop(popAmt):
+def generatePop(generation, popAmt):
 
-    generation = []
     for i in range(popAmt):
         nextMember = Parameters()
         for j in range(4):
-            for k in range(17):
+            for k in range(19):
                 nextMember.ih[j][k] = getInitialFloat()
                 nextMember.c[j][k] = getInitialFloat()
             nextMember.w[j] = getInitialFloat()
             nextMember.ho[j] = getInitialFloat()
         generation.append(nextMember)
 
-    return generation
+    #return generation
 
 """
 Create a new generation, based on the current generation
@@ -39,10 +39,10 @@ def generateGeneration(oldGen):
     
     newGen = []
     newGen.append(oldGen[0])
-    for i in range(499):
+    for i in range(399):
         if random.choice([0,1]) == 1:
             index = int(random.expovariate(-math.log(0.92)))
-            while index >= 500:
+            while index >= 400:
                 index = int(random.expovariate(-math.log(0.92)))
             newGen.append(
                 mutate(oldGen[index])
