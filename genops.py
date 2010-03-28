@@ -5,20 +5,25 @@ import input
 import genplot
 from ann import ANN, Parameters
 
+POPSIZE = 300
+
 """
 Population generation / initializer.  Uses method from Montana and Davis.
 @param popAmt: Number of individuals in the population
 @type popAmt: integer
 @return a list of Parameters objects, representing the population
 """
-def generatePop(generation, popAmt):
+def generatePop(generation):
 
-    for i in range(popAmt):
+    for i in range(POPSIZE):
         nextMember = Parameters()
         for j in range(4):
-            for k in range(19):
+            for k in range(17):
                 nextMember.ih[j][k] = getInitialFloat()
                 nextMember.c[j][k] = getInitialFloat()
+            for k in range(17, 19):
+                nextMember.ih[j][k] = 0.0
+                nextMember.c[j][k] = 0.0
             nextMember.w[j] = getInitialFloat()
             nextMember.ho[j] = getInitialFloat()
         generation.append(nextMember)
@@ -34,14 +39,11 @@ Create a new generation, based on the current generation
 @return: List of new parameters (IE, a new generation)
 """
 def generateGeneration(oldGen):
-    
     newGen = []
     newGen.append(oldGen[0])
-    for i in range(399):
+    for i in range(POPSIZE - 1):
         if random.choice([0,1]) == 1:
-            index = int(random.expovariate(-math.log(0.92)))
-            while index >= 400:
-                index = int(random.expovariate(-math.log(0.92)))
+            index = getIndex()
             newGen.append(
                 mutate(oldGen[index])
             )
@@ -116,7 +118,7 @@ def getInitialFloat():
 def getIndex():
 
     index = int(random.expovariate(-math.log(0.92)))
-    while index >= 400:
+    while index >= POPSIZE:
         index = int(random.expovariate(-math.log(0.92)))
     return index
 
@@ -129,12 +131,10 @@ if __name__ == "__main__":
   trainSet = list(input.Input("train3.tsv"))
   n = len(trainSet) * 20/100
 
-  popSize = 400
-  
-  a.prepare(trainSet, popSize)
+  a.prepare(trainSet, POPSIZE)
 
   params = []
-  generatePop(params, popSize)
+  generatePop(params)
 
   for i in range(10):
     outputValues = a.evaluate(params, returnOutputs=True)
