@@ -60,7 +60,7 @@ __device__ void heapreplace(
   unsigned int size,
   float value
 ) {
-  if (value <= heap[0]) {
+  if (value < heap[0]) {
     return;
   }
   
@@ -98,12 +98,14 @@ __global__ void nlargest(
   unsigned int trainSize,
   unsigned int popSize,
   unsigned int n,
-  float *thresholds
+  float *thresholds,
+  unsigned int *thresholdCounts
 ) {
   const int paramsIndex = blockIdx.y;
   
   if (paramsIndex < popSize) {
-    const float maxValue = thresholds[paramsIndex];
+    float maxValue = thresholds[paramsIndex];
+    unsigned int maxCount = thresholdCounts[paramsIndex];
     extern __shared__ float heap[/* n */];
     
     // First n values sink to the bottom of the heap.
@@ -116,10 +118,34 @@ __global__ void nlargest(
       const float output = outputs[outputIndex];
       if (output < maxValue) {
         heapreplace(heap, n, output);
+      } else if (output == maxValue) {
+        if (maxCount == 0) {
+          heapreplace(heap, n, output);
+        } else {
+          maxCount--;
+        }
       }
     }
     
-    thresholds[paramsIndex] = heap[0];
+    // If maxValue hasn't changed, carry over the number of occurrences from the
+    // previous pass.
+    if (maxValue == heap[0]) {
+      maxCount = thresholdCounts[paramsIndex];
+    } else {
+      maxValue = heap[0];
+      maxCount = 0;
+    }
+    
+    // During the next pass, skip the occurrences of maxValue that were already
+    // accounted for in this pass.
+    for (int i = 0; i < n; i++) {
+      if (maxValue == heap[i]) {
+        maxCount++;
+      }
+    }
+    
+    thresholds[paramsIndex] = maxValue;
+    thresholdCounts[paramsIndex] = maxCount;
   }
 }
 
@@ -145,7 +171,7 @@ __global__ void count(
       if (trainIndex < trainPositives) {
         const float output = outputs[paramsIndex * trainSize + trainIndex];
         
-        if (output >= threshold) {
+        if (output > threshold) {
           count++;
         }
       }

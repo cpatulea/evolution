@@ -86,7 +86,7 @@ class ANN(object):
 
     self.nlargestKernel = self.mod.get_function("nlargest")
     self.nlargestKernel.prepare(
-      (np.intp, np.uint32, np.uint32, np.uint32, np.intp),
+      (np.intp, np.uint32, np.uint32, np.uint32, np.intp, np.intp),
       block=self.nlargestBlockDim
     )
     
@@ -185,6 +185,10 @@ class ANN(object):
     """
     log.info("enter nlargest with n=%d", n)
 
+    # Find one more output so that we can use strictly-less-than when counting
+    # and underestimate lift rather than overestimating it.
+    n = n + 1
+
     passSizes = []
     while n > 0:
       nextSize = min(self.maxHeapFloats, n)
@@ -197,6 +201,11 @@ class ANN(object):
                             dtype=np.float32) * np.inf
     self.thresholds = driver.to_device(thresholdsMat)
 
+    uintBytes = np.dtype(np.uint32).itemsize
+    thresholdCounts = np.zeros(shape=(self.popSize,),
+                               dtype=np.uint32)
+    self.thresholdCounts = driver.to_device(thresholdCounts)
+
     for passSize in passSizes:
       log.debug("begin pass size %d", passSize)
       self.nlargestKernel.prepared_call(self.nlargestGridDim,
@@ -204,13 +213,17 @@ class ANN(object):
                                         self.trainSize,
                                         self.popSize,
                                         passSize,
-                                        self.thresholds)
+                                        self.thresholds,
+                                        self.thresholdCounts)
 
       driver.Context.synchronize()
 
       if log.isEnabledFor(logging.DEBUG):
         thresholdsMat = driver.from_device_like(self.thresholds, thresholdsMat)
         log.debug("thresholds: %s", str(thresholdsMat))
+        
+        thresholdCounts = driver.from_device_like(self.thresholdCounts, thresholdCounts)
+        log.debug("thresholdCounts: %s", str(thresholdCounts))
 
     thresholdsMat = driver.from_device_like(self.thresholds, thresholdsMat)
     return thresholdsMat
@@ -234,7 +247,7 @@ class ANN(object):
     countsMat = driver.from_device(self.counts,
                                    shape=(self.popSize, self.countBlockDim[0]),
                                    dtype=np.uint32)
-    log.debug("counts %r: %s", countsMat.shape, str(countsMat))
+    #log.debug("counts %r: %s", countsMat.shape, str(countsMat))
     log.debug("count sum over threads: %s", str(countsMat.sum(axis=1)))
     
     nlargestPositiveRate = np.float32(countsMat.sum(axis=1)) / n
@@ -390,6 +403,7 @@ if __name__ == "__main__":
     params = zip(*sorted(zip(lifts, params), reverse=True))[1]
 
     params = generateGeneration(params)
+  print outputValues
 
   genplot.plot()
   
