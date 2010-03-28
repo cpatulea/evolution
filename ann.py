@@ -18,6 +18,25 @@ class Parameters(ctypes.Structure):
               ("w", 4 * ctypes.c_float),
               ("ho", 4 * ctypes.c_float)]
 
+  def _float_list_str(self, l):
+    return ", ".join("%4.01g" % el for el in l)
+
+  def __str__(self):
+    s = []
+    s.append("Parameters(\n")
+    for i in range(4):
+      ihl = list(self.ih[i])
+      s.append("  ih[%d]=[0: %s,\n" % (i, self._float_list_str(ihl[0:10])))
+      s.append("        10: %s]\n" % (self._float_list_str(ihl[10:])))
+    for i in range(4):
+      cl = list(self.c[i])
+      s.append("  c[%d] =[0: %s,\n" % (i, self._float_list_str(cl[0:10])))
+      s.append("        10: %s]\n" % (self._float_list_str(cl[10:])))
+    s.append("  w =%s,\n" % self._float_list_str(list(self.w)))
+    s.append("  ho=%s,\n" % self._float_list_str(list(self.ho)))
+    s.append(")")
+    return "".join(s)
+    
 class ANN(object):
   mod = compiler.SourceModule(open("ann_kernels.cu").read())
 
