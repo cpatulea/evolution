@@ -5,7 +5,7 @@ import input
 import genplot
 from ann import ANN, Parameters
 
-POPSIZE = 300
+POPSIZE = 50
 
 """
 Population generation / initializer.  Uses method from Montana and Davis.
@@ -78,10 +78,10 @@ def mutate(xman):
 
     node = random.randint(0,3)
     for i in range(17):
-        xmanJr.ih[node][i] += getInitialFloat()
-        xmanJr.c[node][i] += getInitialFloat()
-    xmanJr.w[node] += getInitialFloat()
-    xmanJr.ho[node] += getInitialFloat()
+        xmanJr.ih[node][i] += getMutationValue()
+        xmanJr.c[node][i] += getMutationValue()
+    xmanJr.w[node] += getMutationValue()
+    xmanJr.ho[node] += getMutationValue()
     
     return xmanJr
 
@@ -113,6 +113,9 @@ Function for determining initial parameter values
 @return a random value from (currently) an exponential distribution
 """
 def getInitialFloat():
+    return random.expovariate(2)*random.choice([-1,1])
+
+def getMutationValue():
     return random.expovariate(1)*random.choice([-1,1])
 
 def getIndex():
@@ -124,8 +127,10 @@ def getIndex():
 
 if __name__ == "__main__":
   import input
-  logging.basicConfig(level=logging.DEBUG)
+  logging.basicConfig(level=logging.WARNING)
   np.set_printoptions(precision=3, edgeitems=3, threshold=20)
+
+  random.seed(5108)
 
   a = ANN()
   trainSet = list(input.Input("train3.tsv"))
@@ -136,7 +141,7 @@ if __name__ == "__main__":
   params = []
   generatePop(params)
 
-  for i in range(10):
+  for i in range(500):
     outputValues = a.evaluate(params, returnOutputs=True)
     
     thresholds = a.nlargest(n)
@@ -147,6 +152,7 @@ if __name__ == "__main__":
     params = zip(*sorted(zip(lifts, params), reverse=True))[1]
 
     params = generateGeneration(params)
+    print "Generation", i, "complete."
   print outputValues
 
   genplot.plot()
