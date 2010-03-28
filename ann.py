@@ -7,8 +7,6 @@ from itertools import islice
 import numpy as np
 import ctypes
 import logging
-import genplot
-import genops
 from bench import timefun
 import random, math
 
@@ -258,121 +256,6 @@ class ANN(object):
     
     return nlargestPositiveRate / overallPositiveRate
 
-"""
-Population generation / initializer.  Uses method from Montana and Davis.
-@param popAmt: Number of individuals in the population
-@type popAmt: integer
-@return a list of Parameters objects, representing the population
-"""
-def generatePop(generation, popAmt):
-
-    for i in range(popAmt):
-        nextMember = Parameters()
-        for j in range(4):
-            for k in range(19):
-                nextMember.ih[j][k] = getInitialFloat()
-                nextMember.c[j][k] = getInitialFloat()
-            nextMember.w[j] = getInitialFloat()
-            nextMember.ho[j] = getInitialFloat()
-        generation.append(nextMember)
-
-    #return generation
-
-"""
-Create a new generation, based on the current generation
-@param oldGen: The generation that will be mated and mutated
-@type oldGen: A list of Parameters operations
-@param fitList: A list of fitnesses of the generation
-@type fitList: A list of float values
-@return: List of new parameters (IE, a new generation)
-"""
-def generateGeneration(oldGen):
-    
-    newGen = []
-    newGen.append(oldGen[0])
-    for i in range(399):
-        if random.choice([0,1]) == 1:
-            index = int(random.expovariate(-math.log(0.92)))
-            while index >= 400:
-                index = int(random.expovariate(-math.log(0.92)))
-            newGen.append(
-                mutate(oldGen[index])
-            )
-        else:
-            index = getIndex()
-            parent1 = oldGen[index]
-            index = getIndex()
-            parent2 = oldGen[index]
-            while parent2 == parent1:
-                index = getIndex()
-                parent2 = oldGen[index]
-            newGen.append(mate(parent1, parent2))
-
-    return newGen
-        
-"""
-Mutation operator.  Uses MUTATE NODES operator from Montana and Davis.
-@param xman: The parent who will be mutated
-@type xman: Parameters (see class Parameters, above)
-@return Mutated Parameters object
-"""
-def mutate(xman):  
-
-    xmanJr = Parameters()
-
-    for i in range(4):
-        for j in range(17):
-            xmanJr.ih[i][j] = xman.ih[i][j]
-            xmanJr.c[i][j] = xman.c[i][j]
-        xmanJr.w[i] = xman.w[i]
-        xmanJr.ho[i] = xman.ho[i]
-
-    node = random.randint(0,3)
-    for i in range(17):
-        xmanJr.ih[node][i] += getInitialFloat()
-        xmanJr.c[node][i] += getInitialFloat()
-    xmanJr.w[node] += getInitialFloat()
-    xmanJr.ho[node] += getInitialFloat()
-    
-    return xmanJr
-
-"""
-Mate operator.  Uses CROSSOVER WEIGHTS operator from Montana and Davis.
-@param parent1: One of the parents who will be mated
-@type parent1: Parameters (see class Parameters, above)
-@param parent2: One of the parents who will be mated
-@type parent2: Parameters (see class Parameters, above)
-@return Child Parameters object
-"""
-def mate(parent1, parent2):
-
-    parentList = [parent1, parent2]
-    child = Parameters()
-
-    for i in range(4):
-        for j in range(17):
-            child.ih[i][j] = parentList[random.randint(0,1)].ih[i][j]
-            child.c[i][j] = parentList[random.randint(0,1)].c[i][j]
-        child.w[i] = parentList[random.randint(0,1)].w[i]
-        child.ho[i] = parentList[random.randint(0,1)].ho[i]
-
-    return child
-
-"""
-Function for determining initial parameter values
-@param none
-@return a random value from (currently) an exponential distribution
-"""
-def getInitialFloat():
-    return random.expovariate(1)*random.choice([-1,1])
-
-def getIndex():
-
-    index = int(random.expovariate(-math.log(0.92)))
-    while index >= 400:
-        index = int(random.expovariate(-math.log(0.92)))
-    return index
-
 def linterp(a, b, p):
   return a + (b - a) * p
 
@@ -383,27 +266,38 @@ if __name__ == "__main__":
 
   a = ANN()
   trainSet = list(input.Input("train3.tsv"))
-  n = len(trainSet) * 20/100
 
-  popSize = 400
-  
+  popSize = 450
   timefun(a.prepare, trainSet, popSize)
 
   params = []
-  generatePop(params, popSize)
 
-  for i in range(10):
-    outputValues = timefun(a.evaluate, params, True)
-    
-    thresholds = timefun(a.nlargest, n)
+  for paramsIndex in range(popSize):
+    p = Parameters()
+    for i in range(19):
+      p.ih[0][i] = 0.0
+      p.ih[1][i] = p.ih[2][i] = p.ih[3][i] = 0.0
 
-    lifts = timefun(a.lift, n)
-    genplot.addGeneration(lifts, i)
+      p.c[0][i] = 0.0
+      p.c[1][i] = p.c[2][i] = p.c[3][i] = 0.0
 
-    params = zip(*sorted(zip(lifts, params), reverse=True))[1]
+    p.ih[0][0] = 1.0
+    p.ih[1][11] = 1.0
 
-    params = generateGeneration(params)
-  print outputValues
+    p.w[0] = -1e-4
+    p.w[1] = -1.0 / (10.0 ** linterp(0, 4, float(paramsIndex) / popSize))
+    p.w[2] = p.w[3] = 0.0
 
-  genplot.plot()
-  
+    p.ho[0] = 1.0
+    p.ho[1] = -1.0
+    p.ho[2] = p.ho[3] = 0.0
+
+    params.append(p)
+
+  outputValues = timefun(a.evaluate, params, True)
+
+  n = len(trainSet) * 20/100
+  thresholds = timefun(a.nlargest, n)
+
+  lifts = timefun(a.lift, n)
+  print lifts

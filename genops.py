@@ -1,11 +1,9 @@
-import ctypes, random, math, copy
-from ann import Parameters
-
-"""class Parameters(ctypes.Structure):
-  _fields_ = [("ih", 4 * (17 * ctypes.c_float)),
-              ("c", 4 * (17 * ctypes.c_float)),
-              ("w", 4 * ctypes.c_float),
-              ("ho", 4 * ctypes.c_float)]"""
+#!/usr/bin/python
+import random, math, copy, logging
+import numpy as np
+import input
+import genplot
+from ann import ANN, Parameters
 
 """
 Population generation / initializer.  Uses method from Montana and Davis.
@@ -118,7 +116,37 @@ def getInitialFloat():
 def getIndex():
 
     index = int(random.expovariate(-math.log(0.92)))
-    while index >= 500:
+    while index >= 400:
         index = int(random.expovariate(-math.log(0.92)))
     return index
 
+if __name__ == "__main__":
+  import input
+  logging.basicConfig(level=logging.DEBUG)
+  np.set_printoptions(precision=3, edgeitems=3, threshold=20)
+
+  a = ANN()
+  trainSet = list(input.Input("train3.tsv"))
+  n = len(trainSet) * 20/100
+
+  popSize = 400
+  
+  a.prepare(trainSet, popSize)
+
+  params = []
+  generatePop(params, popSize)
+
+  for i in range(10):
+    outputValues = a.evaluate(params, returnOutputs=True)
+    
+    thresholds = a.nlargest(n)
+
+    lifts = a.lift(n)
+    genplot.addGeneration(lifts, i)
+
+    params = zip(*sorted(zip(lifts, params), reverse=True))[1]
+
+    params = generateGeneration(params)
+  print outputValues
+
+  genplot.plot()
