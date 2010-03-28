@@ -20,6 +20,13 @@ class Parameters(ctypes.Structure):
 class ANN(object):
   mod = compiler.SourceModule(open("ann_kernels.cu").read())
 
+  def _trainSetInClassOrder(self, trainSet):
+    for index, instance in enumerate(trainSet):
+      if (index < self.trainPositives) != (instance[-1] == 1.0):
+        return False
+    
+    return True
+
   def prepare(self, trainSet, popSize):
     """Prepare for many parallel ANN fitness calculations.
     
@@ -32,7 +39,8 @@ class ANN(object):
     sizeof(Params))    +--------+--------+--------+----+
      
     @param trainSet: training set
-    @type trainSet: list of tuples, one tuple per training instance
+    @type trainSet: list of tuples, one tuple per training instance, last
+                    tuple element is the class (0=negative 1=positive)
     @param popSize: number of networks which will be evaluated in each run
     @type popSize: int
     """
@@ -41,6 +49,14 @@ class ANN(object):
     log.info("training set size: %d", self.trainSize)
     log.info("population size: %d", self.popSize)
 
+    self.trainPositives = sum(i[-1] == 1.0 for i in trainSet)
+
+    # Ensure training set has all positive instances first.
+    if not self._trainSetInClassOrder(trainSet):
+      raise ValueError("Training set must have all positive instances first")
+
+    # Calculate block/grid size and prepare evaluate() kernel.
+    # (avoids Function.__call__ overhead)
     maxBlockDimX = driver.Context.get_device().get_attribute(
       driver.device_attribute.MAX_BLOCK_DIM_X
     )
@@ -52,13 +68,13 @@ class ANN(object):
                             self.popSize)
     log.info("evaluate kernel grid dim: %r", self.evaluateGridDim)
 
-    # Avoid Function.__call__ overhead
     self.evaluateKernel = self.mod.get_function("evaluate")
     self.evaluateKernel.prepare(
       (np.intp, np.uint32, np.intp, np.uint32, np.intp),
       block=self.evaluateBlockDim
     )
 
+    # Calculate block/grid size and prepare nlargest() kernel.
     self.nlargestBlockDim = (1, 1, 1)
     log.info("nlargest kernel block dim: %r", self.nlargestBlockDim)
     
@@ -69,6 +85,19 @@ class ANN(object):
     self.nlargestKernel.prepare(
       (np.intp, np.uint32, np.uint32, np.uint32, np.intp),
       block=self.nlargestBlockDim
+    )
+    
+    # Calculate block/grid size and prepare lift() kernel.
+    self.countBlockDim = (maxBlockDimX, 1, 1)
+    log.info("count kernel block dim: %r", self.countBlockDim)
+    
+    self.countGridDim = (1, self.popSize)
+    log.info("count kernel grid dim: %r", self.countGridDim)
+    
+    self.countKernel = self.mod.get_function("count")
+    self.countKernel.prepare(
+      (np.intp, np.uint32, np.uint32, np.uint32, np.intp, np.intp),
+      block=self.countBlockDim
     )
 
     # Heap size in each pass is limited by shared memory per multiprocessor.
@@ -95,7 +124,7 @@ class ANN(object):
       trainSetMat.reshape(tuple(reversed(trainSetMat.shape)), order="F")
     )
 
-    # Pre-allocate various arrays
+    # Pre-allocate various large arrays
     # TODO: mem_alloc_pitch?
     floatBytes = np.dtype(np.float32).itemsize
     self.params = driver.mem_alloc(
@@ -103,7 +132,10 @@ class ANN(object):
     )
     self.outputs = driver.mem_alloc(self.popSize * self.trainSize * floatBytes)
     
-    self.thresholds = driver.mem_alloc(self.popSize * floatBytes)
+    uintBytes = np.dtype(np.uint32).itemsize
+    self.counts = driver.mem_alloc(
+      self.popSize * self.countBlockDim[0] * uintBytes
+    )
 
   def evaluate(self, params, returnOutputs=False):
     """Evaluate several networks (with given params) on training set.
@@ -160,7 +192,7 @@ class ANN(object):
     
     thresholdsMat = np.ones(shape=(self.popSize,),
                             dtype=np.float32) * np.inf
-    thresholds = driver.to_device(thresholdsMat)
+    self.thresholds = driver.to_device(thresholdsMat)
 
     for passSize in passSizes:
       log.debug("begin pass size %d", passSize)
@@ -169,14 +201,42 @@ class ANN(object):
                                         self.trainSize,
                                         self.popSize,
                                         passSize,
-                                        thresholds)
+                                        self.thresholds)
 
       if log.isEnabledFor(logging.DEBUG):
-        thresholdsMat = driver.from_device_like(thresholds, thresholdsMat)
+        thresholdsMat = driver.from_device_like(self.thresholds, thresholdsMat)
         log.debug("thresholds: %s", str(thresholdsMat))
 
-    thresholdsMat = driver.from_device_like(thresholds, thresholdsMat)
+    thresholdsMat = driver.from_device_like(self.thresholds, thresholdsMat)
     return thresholdsMat
+
+  def lift(self, n):
+    """Returns (positive rate within n largest) / (overall positive rate) for
+       each individual.
+    
+    @return list of counts, in order of individuals
+    """
+    self.countKernel.prepared_call(self.countGridDim,
+                                   self.outputs,
+                                   self.trainSize,
+                                   self.trainPositives,
+                                   self.popSize,
+                                   self.thresholds,
+                                   self.counts)
+    
+    countsMat = driver.from_device(self.counts,
+                                   shape=(self.popSize, self.countBlockDim[0]),
+                                   dtype=np.uint32)
+    log.debug("counts %r: %s", countsMat.shape, str(countsMat))
+    log.debug("count sum over threads: %s", str(countsMat.sum(axis=1)))
+    
+    nlargestPositiveRate = np.float32(countsMat.sum(axis=1)) / n
+    log.debug("positive rate (n largest outputs): %s", str(nlargestPositiveRate))
+
+    overallPositiveRate = float(self.trainPositives) / float(self.trainSize)
+    log.debug("positive rate (overall): %.04f", overallPositiveRate)
+    
+    return nlargestPositiveRate / overallPositiveRate
 
 def linterp(a, b, p):
   return a + (b - a) * p
@@ -187,9 +247,9 @@ if __name__ == "__main__":
   np.set_printoptions(precision=3, edgeitems=3, threshold=20)
 
   a = ANN()
-  trainSet = list(input.Input("train.tsv"))
+  trainSet = list(input.Input("train3.tsv"))
 
-  popSize = 500
+  popSize = 450
   timefun(a.prepare, trainSet, popSize)
 
   params = []
@@ -197,27 +257,29 @@ if __name__ == "__main__":
   for paramsIndex in range(popSize):
     p = Parameters()
     for i in range(19):
-      p.ih[0][i] = 1.0
+      p.ih[0][i] = 0.0
       p.ih[1][i] = p.ih[2][i] = p.ih[3][i] = 0.0
 
       p.c[0][i] = 0.0
       p.c[1][i] = p.c[2][i] = p.c[3][i] = 0.0
 
-    p.w[0] = linterp(1e-4, 1e-5, float(paramsIndex) / popSize)
-    p.w[1] = p.w[2] = p.w[3] = 0.0
+    p.ih[0][0] = 1.0
+    p.ih[1][11] = 1.0
+
+    p.w[0] = -1e-4
+    p.w[1] = -1.0 / (10.0 ** linterp(0, 4, float(paramsIndex) / popSize))
+    p.w[2] = p.w[3] = 0.0
     
     p.ho[0] = 1.0
-    p.ho[1] = p.ho[2] = p.ho[3] = 0.0
+    p.ho[1] = -1.0
+    p.ho[2] = p.ho[3] = 0.0
     
     params.append(p)
 
   outputValues = timefun(a.evaluate, params, True)
-  
+
   n = len(trainSet) * 20/100
   thresholds = timefun(a.nlargest, n)
-  
-  for index, (row, threshold) in islice(enumerate(zip(outputValues, thresholds)), 7):
-    numLarger = sum(v >= threshold for v in row)
-    print "i%d: larger target: %d real: %d/%d (%.02f%%)" % (
-      index, n, numLarger, len(trainSet),
-      100.0 * numLarger / len(trainSet))
+
+  lifts = timefun(a.lift, n)
+  print lifts

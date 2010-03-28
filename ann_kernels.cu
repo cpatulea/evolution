@@ -1,7 +1,7 @@
 #include <cuda.h>
 #include <math_constants.h>
 
-#define ARRAY_SIZE(array) sizeof(array) / sizeof((array)[0])
+#define ARRAY_SIZE(array) (sizeof(array) / sizeof((array)[0]))
 
 struct Parameters {
   float ih[4][19];  // input->hidden edge weight
@@ -120,5 +120,37 @@ __global__ void nlargest(
     }
     
     thresholds[paramsIndex] = heap[0];
+  }
+}
+
+__global__ void count(
+  const float *outputs,
+  unsigned int trainSize,
+  unsigned int trainPositives,
+  unsigned int popSize,
+  const float *thresholds,
+  unsigned int *counts
+) {
+  const int paramsIndex = blockIdx.y;
+  
+  if (paramsIndex < popSize) {
+    const float threshold = thresholds[paramsIndex];
+    unsigned int count = 0;
+    
+    const int gridDimX = (trainSize + blockDim.x - 1) / blockDim.x;
+
+    for (int blockX = 0; blockX < gridDimX; blockX++) {
+      const int trainIndex = blockX * blockDim.x + threadIdx.x;
+      
+      if (trainIndex < trainPositives) {
+        const float output = outputs[paramsIndex * trainSize + trainIndex];
+        
+        if (output >= threshold) {
+          count++;
+        }
+      }
+    }
+    
+    counts[paramsIndex * blockDim.x + threadIdx.x] = count;
   }
 }
