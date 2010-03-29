@@ -18,12 +18,9 @@ def generatePop(generation):
     for i in range(POPSIZE):
         nextMember = Parameters()
         for j in range(4):
-            for k in range(17):
+            for k in range(19):
                 nextMember.ih[j][k] = getInitialFloat()
                 nextMember.c[j][k] = getInitialFloat()
-            for k in range(17, 19):
-                nextMember.ih[j][k] = 0.0
-                nextMember.c[j][k] = 0.0
             nextMember.w[j] = getInitialFloat()
             nextMember.ho[j] = getInitialFloat()
         generation.append(nextMember)
@@ -70,14 +67,14 @@ def mutate(xman):
     xmanJr = Parameters()
 
     for i in range(4):
-        for j in range(17):
+        for j in range(19):
             xmanJr.ih[i][j] = xman.ih[i][j]
             xmanJr.c[i][j] = xman.c[i][j]
         xmanJr.w[i] = xman.w[i]
         xmanJr.ho[i] = xman.ho[i]
 
     node = random.randint(0,3)
-    for i in range(17):
+    for i in range(19):
         xmanJr.ih[node][i] += getMutationValue()
         xmanJr.c[node][i] += getMutationValue()
     xmanJr.w[node] += getMutationValue()
@@ -99,7 +96,7 @@ def mate(parent1, parent2):
     child = Parameters()
 
     for i in range(4):
-        for j in range(17):
+        for j in range(19):
             child.ih[i][j] = parentList[random.randint(0,1)].ih[i][j]
             child.c[i][j] = parentList[random.randint(0,1)].c[i][j]
         child.w[i] = parentList[random.randint(0,1)].w[i]
@@ -118,14 +115,16 @@ def getInitialFloat():
 def getMutationValue():
     return random.expovariate(1)*random.choice([-1,1])
 
-def getIndex():
+INDEX_LAMBDA = -math.log(0.92)
 
-    index = int(random.expovariate(-math.log(0.92)))
+def getIndex():
+    
+    index = int(random.expovariate(INDEX_LAMBDA))
     while index >= POPSIZE:
-        index = int(random.expovariate(-math.log(0.92)))
+        index = int(random.expovariate(INDEX_LAMBDA))
     return index
 
-if __name__ == "__main__":
+def main():
   import input
   logging.basicConfig(level=logging.WARNING)
   np.set_printoptions(precision=3, edgeitems=3, threshold=20)
@@ -133,26 +132,35 @@ if __name__ == "__main__":
   random.seed(5108)
 
   a = ANN()
-  trainSet = list(input.Input("train3.tsv"))
+  inp = input.Input("train3.tsv")
+  inp.remove(7)
+  inp.remove(9)
+  trainSet = list(inp)
+  
+  trainPositives = sum(i[-1] == 1.0 for i in trainSet)
+  trainSet = [instance[:-1] + [0, 0] for instance in inp]
+
   n = len(trainSet) * 20/100
 
-  a.prepare(trainSet, POPSIZE)
+  a.prepare(trainSet, trainPositives, POPSIZE)
 
   params = []
   generatePop(params)
 
-  for i in range(500):
+  for genIndex in range(100):
     outputValues = a.evaluate(params, returnOutputs=True)
     
     thresholds = a.nlargest(n)
 
     lifts = a.lift(n)
-    genplot.addGeneration(lifts, i)
+    genplot.addGeneration(lifts, genIndex)
 
-    params = zip(*sorted(zip(lifts, params), reverse=True))[1]
-
-    params = generateGeneration(params)
-    print "Generation", i, "complete."
-  print outputValues
-
+    taggedParams = sorted(zip(lifts, params, range(len(params))),
+                          reverse=True)
+    params = generateGeneration([p for l, p, i in taggedParams])
+    print "Generation", genIndex, "complete."
+    
   genplot.plot()
+
+if __name__ == "__main__":
+  main()

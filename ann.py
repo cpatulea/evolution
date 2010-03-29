@@ -40,14 +40,7 @@ class Parameters(ctypes.Structure):
 class ANN(object):
   mod = compiler.SourceModule(open("ann_kernels.cu").read())
 
-  def _trainSetInClassOrder(self, trainSet):
-    for index, instance in enumerate(trainSet):
-      if (index < self.trainPositives) != (instance[-1] == 1.0):
-        return False
-    
-    return True
-
-  def prepare(self, trainSet, popSize):
+  def prepare(self, trainSet, trainPositives, popSize):
     """Prepare for many parallel ANN fitness calculations.
     
                          len(trainSet[0]) x len(trainSet)
@@ -59,8 +52,11 @@ class ANN(object):
     sizeof(Params))    +--------+--------+--------+----+
      
     @param trainSet: training set
-    @type trainSet: list of tuples, one tuple per training instance, last
-                    tuple element is the class (0=negative 1=positive)
+    @type trainSet: list of tuples, one tuple per training instance, positive
+                    instances first, followed by negative instances
+    @param trainPositives: number of positive instances at the beginning of the
+                           training set
+    @type trainPositives: int
     @param popSize: number of networks which will be evaluated in each run
     @type popSize: int
     """
@@ -69,11 +65,7 @@ class ANN(object):
     log.info("training set size: %d", self.trainSize)
     log.info("population size: %d", self.popSize)
 
-    self.trainPositives = sum(i[-1] == 1.0 for i in trainSet)
-
-    # Ensure training set has all positive instances first.
-    if not self._trainSetInClassOrder(trainSet):
-      raise ValueError("Training set must have all positive instances first")
+    self.trainPositives = trainPositives
 
     # Calculate block/grid size and prepare evaluate() kernel.
     # (avoids Function.__call__ overhead)
@@ -140,6 +132,7 @@ class ANN(object):
     # (avoids "Strided Accesses", see CUDA Best Practices Guide section 3.2.1.4)
     # TODO: Align each feature on 128-byte boundary?
     trainSetMat = np.asmatrix(trainSet, np.float32)
+    assert trainSetMat.shape[1] == Parameters.ih.size / Parameters.w.size
     self.trainSet = driver.to_device(
       trainSetMat.reshape(tuple(reversed(trainSetMat.shape)), order="F")
     )
@@ -190,6 +183,20 @@ class ANN(object):
       return driver.from_device(self.outputs,
                                 shape=(self.popSize, self.trainSize),
                                 dtype=np.float32)
+
+  def evaluate_cpu(self, p, inputs):
+    out = 0.0
+    
+    for j in range(4):
+      d2 = 0.0
+      for i in range(19):
+        d = inputs[i] * p.ih[j][i] - p.c[j][i]
+        d2 += d * d
+      
+      h = math.exp(-p.w[j] * d2)
+      out += h * p.ho[j]
+    
+    return out
 
   def nlargest(self, n):
     """Returns the per-individual threshold above which there are n outputs.
@@ -267,27 +274,97 @@ class ANN(object):
     #log.debug("counts %r: %s", countsMat.shape, str(countsMat))
     log.debug("count sum over threads: %s", str(countsMat.sum(axis=1)))
     
-    nlargestPositiveRate = np.float32(countsMat.sum(axis=1)) / n
-    log.debug("positive rate (n largest outputs): %s", str(nlargestPositiveRate))
-
+    self.countSums = countsMat.sum(axis=1)
+    
+    self.nlargestPositiveRate = np.float32(self.countSums) / n
+    log.debug("positive rate (n largest outputs): %s", str(self.nlargestPositiveRate))
+    
     overallPositiveRate = float(self.trainPositives) / float(self.trainSize)
     log.debug("positive rate (overall): %.04f", overallPositiveRate)
     
-    return nlargestPositiveRate / overallPositiveRate
+    return self.nlargestPositiveRate / overallPositiveRate
 
 def linterp(a, b, p):
   return a + (b - a) * p
 
-if __name__ == "__main__":
+def forceOnlyFeatures(params, featList):
+  for p in params:
+    # we want only feature 0 and the class
+    for i in range(4):
+      for j in range(19):
+        if j not in featList:
+          p.ih[i][j] = 0
+          p.c[i][j] = 0
+    p.ho[1] = p.ho[2] = p.ho[3] = 0.0
+
+def outputTypes(label, valueIter):
+  nan = neginf = posinf = others = 0
+  for out in valueIter:
+    if np.isnan(out):
+      nan += 1
+    elif np.isneginf(out):
+      neginf += 1
+    elif np.isposinf(out):
+      posinf += 1
+    else:
+      others += 1
+
+  print "%s output types: nan=%d neginf=%d posinf=%d others=%d" % (
+    label, nan, neginf, posinf, others)
+
+def showParams(p):
+  topLift, top, topIndex = taggedParams[0]
+  topThreshold = thresholds[topIndex]
+  print "Top: index=%d, lift=%.02f, threshold=%.02e" % (
+    topIndex, topLift, topThreshold), top
+  
+  topOutputs = outputValues[topIndex]
+  outputTypes("Top", topOutputs.flat)
+  goodOutputs = [o for o in topOutputs if not np.isnan(o)]
+
+  topMin, topMax = min(topOutputs), max(topOutputs)
+  topRange = topMax - topMin
+  print "Top output stats: min=%.02e max=%.02e" % (topMin, topMax)
+  
+  print "Top poscount: %d" % a.countSums[topIndex]
+  
+  cpuCount = sum(o > topThreshold for o in topOutputs[0:a.trainPositives])
+  print "Top cpucount: %d" % cpuCount
+
+  print "Top posrate: %.02e" % a.nlargestPositiveRate[topIndex]
+  print "Top lift: %.02e" % lifts[topIndex]
+
+  print "Train set: %d+ %d-" % (a.trainPositives, len(trainSet) - a.trainPositives)
+
+  #histRange = (topMin - .1*topRange, topMax + .1*topRange)
+  histRange = (.5*topThreshold, 1.5*topThreshold)
+  print "Hist range:", histRange
+  histPos, binsPos = np.histogram(goodOutputs[0:a.trainPositives],
+                                  bins=20, range=histRange)
+  histNeg, binsNeg = np.histogram(goodOutputs[a.trainPositives:],
+                                  bins=20, range=histRange)
+  assert (binsPos == binsNeg).all()
+  bins = binsPos
+  
+  for bl, bh, hp, hn in zip(bins[:-1], bins[1:], histPos, histNeg):
+    print "%.02e .. %.02e: %d+ %d-" % (bl, bh, hp, hn)
+
+def main():
   import input
   logging.basicConfig(level=logging.DEBUG)
   np.set_printoptions(precision=3, edgeitems=3, threshold=20)
 
   a = ANN()
-  trainSet = list(input.Input("train3.tsv"))
+  inp = input.Input("train3.tsv")
+  inp.remove(7)
+  inp.remove(9)
+  trainSet = list(inp)
+  
+  trainPositives = sum(i[-1] == 1.0 for i in trainSet)
+  trainSet = [instance[:-1] + [0, 0] for instance in trainSet]
 
   popSize = 450
-  timefun(a.prepare, trainSet, popSize)
+  timefun(a.prepare, trainSet, trainPositives, popSize)
 
   params = []
 
@@ -320,3 +397,6 @@ if __name__ == "__main__":
 
   lifts = timefun(a.lift, n)
   print lifts
+
+if __name__ == "__main__":
+  main()

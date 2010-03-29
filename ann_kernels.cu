@@ -116,6 +116,10 @@ __global__ void nlargest(
     for (int trainIndex = 0; trainIndex < trainSize; trainIndex++) {
       const int outputIndex = paramsIndex * trainSize + trainIndex;
       const float output = outputs[outputIndex];
+      if (isnan(output)) {
+        continue;
+      }
+      
       if (output < maxValue) {
         heapreplace(heap, n, output);
       } else if (output == maxValue) {
