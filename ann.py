@@ -8,7 +8,7 @@ import numpy as np
 import ctypes
 import logging
 from bench import timefun
-import random, math
+import math
 
 log = logging.getLogger("ann")
 
@@ -82,8 +82,8 @@ class ANN(object):
     """
     self.trainSize = len(trainSet)
     self.popSize = popSize
-    log.info("training set size: %d", self.trainSize)
-    log.info("population size: %d", self.popSize)
+    log.debug("training set size: %d", self.trainSize)
+    log.debug("population size: %d", self.popSize)
 
     self.trainPositives = trainPositives
 
@@ -93,12 +93,12 @@ class ANN(object):
       driver.device_attribute.MAX_BLOCK_DIM_X
     )
     self.evaluateBlockDim = (maxBlockDimX, 1, 1)
-    log.info("evaluate kernel block dim: %r", self.evaluateBlockDim)
+    log.debug("evaluate kernel block dim: %r", self.evaluateBlockDim)
     
     blockDimX = self.evaluateBlockDim[0]
     self.evaluateGridDim = ((self.trainSize + blockDimX - 1) / blockDimX,
                             self.popSize)
-    log.info("evaluate kernel grid dim: %r", self.evaluateGridDim)
+    log.debug("evaluate kernel grid dim: %r", self.evaluateGridDim)
 
     self.evaluateKernel = self.mod.get_function("evaluate")
     self.evaluateKernel.prepare(
@@ -108,10 +108,10 @@ class ANN(object):
 
     # Calculate block/grid size and prepare nlargest() kernel.
     self.nlargestBlockDim = (1, 1, 1)
-    log.info("nlargest kernel block dim: %r", self.nlargestBlockDim)
+    log.debug("nlargest kernel block dim: %r", self.nlargestBlockDim)
     
     self.nlargestGridDim = (1, self.popSize)
-    log.info("nlargest kernel grid dim: %r", self.nlargestGridDim)
+    log.debug("nlargest kernel grid dim: %r", self.nlargestGridDim)
 
     self.nlargestKernel = self.mod.get_function("nlargest")
     self.nlargestKernel.prepare(
@@ -121,10 +121,10 @@ class ANN(object):
     
     # Calculate block/grid size and prepare lift() kernel.
     self.countBlockDim = (maxBlockDimX, 1, 1)
-    log.info("count kernel block dim: %r", self.countBlockDim)
+    log.debug("count kernel block dim: %r", self.countBlockDim)
     
     self.countGridDim = (1, self.popSize)
-    log.info("count kernel grid dim: %r", self.countGridDim)
+    log.debug("count kernel grid dim: %r", self.countGridDim)
     
     self.countKernel = self.mod.get_function("count")
     self.countKernel.prepare(
@@ -135,7 +135,7 @@ class ANN(object):
     # Heap size in each pass is limited by shared memory per multiprocessor.
     sharedBytesPerBlock = tools.DeviceData().shared_memory
     floatBytes = np.dtype(np.float32).itemsize
-    log.info("max shared memory per block: %d bytes (%d floats)",
+    log.debug("max shared memory per block: %d bytes (%d floats)",
       sharedBytesPerBlock, sharedBytesPerBlock / floatBytes)
     
     self.maxHeapFloats = (sharedBytesPerBlock / floatBytes
@@ -143,7 +143,7 @@ class ANN(object):
     )
     maxHeapBytes = self.maxHeapFloats * floatBytes
 
-    log.info("using heap size: %d bytes (%d floats)",
+    log.debug("using heap size: %d bytes (%d floats)",
       maxHeapBytes, self.maxHeapFloats)
     self.nlargestKernel.set_shared_size(maxHeapBytes)
 
@@ -199,10 +199,12 @@ class ANN(object):
 
     driver.Context.synchronize()
 
+    self.outputsMat = driver.from_device(self.outputs,
+                                         shape=(self.popSize, self.trainSize),
+                                         dtype=np.float32)
+    
     if returnOutputs:
-      return driver.from_device(self.outputs,
-                                shape=(self.popSize, self.trainSize),
-                                dtype=np.float32)
+      return self.outputsMat
 
   def evaluate_cpu(self, p, inputs):
     out = 0.0
@@ -227,7 +229,7 @@ class ANN(object):
     @return list of thresholds, in order of individuals, which delimit the top
             n output values
     """
-    log.info("enter nlargest with n=%d", n)
+    log.debug("enter nlargest with n=%d", n)
 
     # Find one more output so that we can use strictly-less-than when counting
     # and underestimate lift rather than overestimating it.
@@ -239,7 +241,7 @@ class ANN(object):
       passSizes.append(nextSize)
       n -= nextSize
 
-    log.info("pass sizes: %r", passSizes)
+    log.debug("pass sizes: %r", passSizes)
     
     thresholdsMat = np.ones(shape=(self.popSize,),
                             dtype=np.float32) * np.inf
@@ -269,8 +271,8 @@ class ANN(object):
         thresholdCounts = driver.from_device_like(self.thresholdCounts, thresholdCounts)
         log.debug("thresholdCounts: %s", str(thresholdCounts))
 
-    thresholdsMat = driver.from_device_like(self.thresholds, thresholdsMat)
-    return thresholdsMat
+    self.thresholdsMat = driver.from_device_like(self.thresholds, thresholdsMat)
+    return self.thresholdsMat
 
   def lift(self, n):
     """Returns (positive rate within n largest) / (overall positive rate) for
@@ -302,7 +304,29 @@ class ANN(object):
     overallPositiveRate = float(self.trainPositives) / float(self.trainSize)
     log.debug("positive rate (overall): %.04f", overallPositiveRate)
     
-    return self.nlargestPositiveRate / overallPositiveRate
+    lifts = self.nlargestPositiveRate / overallPositiveRate
+    
+    sortedLifts = sorted(enumerate(lifts), key=lambda (i, l): l, reverse=True)
+    topIndex, topLift = sortedLifts[0]
+    
+    topOutputs = self.outputsMat[topIndex]
+    
+    nans = np.sum(np.isnan(topOutputs))
+    neginfs = np.sum(np.isneginf(topOutputs))
+    posinfs = np.sum(np.isposinf(topOutputs))
+    omin = np.nanmin(topOutputs)
+    omax = np.nanmax(topOutputs)
+    threshold = self.thresholdsMat[topIndex]
+    
+    log.info("The top ANN's outputs are:")
+    log.info(
+      "  %.02f%% NaN, %.02f%% -inf, %.02f%% +inf, min %.02e, max %.02e, thresh %.02e",
+      100.0 * nans / len(topOutputs),
+      100.0 * neginfs / len(topOutputs),
+      100.0 * posinfs / len(topOutputs),
+      omin, omax, threshold)
+
+    return lifts
 
 def linterp(a, b, p):
   return a + (b - a) * p

@@ -18,7 +18,7 @@ def timefun(fun, *args, **kwargs):
   
   avg = sum(deltas)/len(deltas)
   std = math.sqrt(sum(d*d for d in deltas)/len(deltas) - avg*avg)
-  log.info("%s: avg %.01f, std %.01f ms", fun.func_name,
+  log.debug("%s: avg %.01f, std %.01f ms", fun.func_name,
     avg*1000.0, std*1000.0)
 
   if stats:

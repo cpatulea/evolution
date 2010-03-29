@@ -1,9 +1,12 @@
 #!/usr/bin/python
 import random, math, copy, logging
 import numpy as np
+import md5
 import input
 import genplot
 from ann import ANN, Parameters
+
+log = logging.getLogger("genops")
 
 POPSIZE = 50
 
@@ -14,7 +17,6 @@ Population generation / initializer.  Uses method from Montana and Davis.
 @return a list of Parameters objects, representing the population
 """
 def generatePop(generation):
-
     for i in range(POPSIZE):
         nextMember = Parameters()
         for j in range(4):
@@ -63,7 +65,6 @@ Mutation operator.  Uses MUTATE NODES operator from Montana and Davis.
 @return Mutated Parameters object
 """
 def mutate(xman):  
-
     xmanJr = Parameters()
 
     for i in range(4):
@@ -91,7 +92,6 @@ Mate operator.  Uses CROSSOVER WEIGHTS operator from Montana and Davis.
 @return Child Parameters object
 """
 def mate(parent1, parent2):
-
     parentList = [parent1, parent2]
     child = Parameters()
 
@@ -113,23 +113,38 @@ def getInitialFloat():
     return random.expovariate(2)*random.choice([-1,1])
 
 def getMutationValue():
-    return random.expovariate(1)*random.choice([-1,1])
+    return random.expovariate(12)*random.choice([-1,1])
+    #return random.normalvariate(0.0, 7.0)
 
 INDEX_LAMBDA = -math.log(0.92)
 
 def getIndex():
-    
     index = int(random.expovariate(INDEX_LAMBDA))
     while index >= POPSIZE:
         index = int(random.expovariate(INDEX_LAMBDA))
     return index
 
+def logFP(label, buf):
+  """Logs a fingerprint of important data in each generation.
+  
+  Used to be sure that two runs are exactly identical.
+  """
+  m = md5.new()
+
+  if isinstance(buf, list):
+    for el in buf:
+      m.update(buffer(el))
+  else:
+    m.update(buffer(buf))
+  
+  log.debug("%s FP: %s", label, m.hexdigest())
+
 def main():
   import input
-  logging.basicConfig(level=logging.WARNING)
+  logging.basicConfig(level=logging.INFO)
   np.set_printoptions(precision=3, edgeitems=3, threshold=20)
 
-  random.seed(5108)
+  random.seed(1005108)
 
   a = ANN()
   inp = input.Input("train3.tsv")
@@ -147,17 +162,28 @@ def main():
   params = []
   generatePop(params)
 
-  for genIndex in range(100):
+  for genIndex in range(5):
+    print "Generation", genIndex, "starting."
+    logFP("Population", params)
     outputValues = a.evaluate(params, returnOutputs=True)
     
+    logFP("Outputs", outputValues)
+    
     thresholds = a.nlargest(n)
+    logFP("Thresholds", thresholds)
 
     lifts = a.lift(n)
+    logFP("Lifts", lifts)
+
     genplot.addGeneration(lifts, genIndex)
 
     taggedParams = sorted(zip(lifts, params, range(len(params))),
+                          key=lambda (l, p, i): l,
                           reverse=True)
-    params = generateGeneration([p for l, p, i in taggedParams])
+    sortedParams = [p for l, p, i in taggedParams]
+    logFP("Sorted pop", sortedParams)
+
+    params = generateGeneration(sortedParams)
     print "Generation", genIndex, "complete."
     
   genplot.plot()
