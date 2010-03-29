@@ -55,6 +55,46 @@ class Input(object):
   def __iter__(self):
     return iter(self.data)
 
+def traintest(dataSet, testPercent):
+  # dataSet:
+  # [+++++++++++----------------------------]
+  # ^^^^^^^^vvvv^^^^^^^^^^^^^^^^^^^^^vvvvvvv
+  # train   test train               test
+  # 70%     30%  70%                 30%
+  dataPos = sum(i[-1] == 1.0 for i in dataSet)
+  dataNeg = len(dataSet) - dataPos
+  print "datapos", dataPos, "dataneg", dataNeg
+
+  # Remove class, pad to 19 features.
+  dataSet = [inst[:-1] + [0.0, 0.0] for inst in dataSet]
+  
+  testPos = dataPos * testPercent / 100
+  testNeg = dataNeg * testPercent / 100
+  assert testPos + testNeg == testPercent * len(dataSet) / 100
+  print "testpos", testPos, "testneg", testNeg
+
+  trainPercent = 100 - testPercent
+  trainPos = dataPos - testPos
+  trainNeg = dataNeg - testNeg
+  print "trainpos", trainPos, "trainneg", trainNeg
+  
+  #trainSize = trainPos + trainNeg
+  #assert trainPos + trainNeg == trainPercent * len(dataSet) / 100
+  
+  trainSet = dataSet[:trainPos] + dataSet[dataPos:dataPos + trainNeg]
+  #assert len(trainSet) == trainSize
+  
+  # testSet:
+  # [++++++++++--------------------------]
+  #           ^ testPos
+  testSet = dataSet[trainPos - testPos:trainPos] + dataSet[-testNeg:]
+  #assert len(testSet) == testSize
+
+  print "Split: train %d (%d+) trainPos %d (%d+)" % (
+    len(trainSet), trainPos, len(testSet), testPos)
+
+  return (trainSet, trainPos), (testSet, testPos)
+
 if __name__ == "__main__":
   data = list(Input("train.tsv"))
   print len(data[0]), data[0]

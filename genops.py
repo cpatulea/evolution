@@ -4,6 +4,7 @@ import numpy as np
 import md5
 import input
 import genplot
+import sys
 from ann import ANN, Parameters
 
 log = logging.getLogger("genops")
@@ -141,7 +142,7 @@ def logFP(label, buf):
 
 def main():
   import input
-  logging.basicConfig(level=logging.INFO)
+  logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
   np.set_printoptions(precision=3, edgeitems=3, threshold=20)
 
   random.seed(1005108)
@@ -150,12 +151,12 @@ def main():
   inp = input.Input("train3.tsv")
   inp.remove(7)
   inp.remove(9)
-  trainSet = list(inp)
+  dataSet = list(inp)
   
-  trainPositives = sum(i[-1] == 1.0 for i in trainSet)
-  trainSet = [instance[:-1] + [0, 0] for instance in inp]
-
+  (trainSet, trainPositives), _ = input.traintest(dataSet, 30)
+  
   n = len(trainSet) * 20/100
+  print "Train set: %d (%d+)" % (len(trainSet), trainPositives)
 
   a.prepare(trainSet, trainPositives, POPSIZE)
 
@@ -185,7 +186,11 @@ def main():
 
     params = generateGeneration(sortedParams)
     print "Generation", genIndex, "complete."
-    
+
+  args = sys.argv[1:]
+  if len(args) == 1:
+    open(args[0], "w").write(repr(sortedParams[0]))
+
   genplot.plot()
 
 if __name__ == "__main__":
