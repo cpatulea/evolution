@@ -9,6 +9,11 @@ class Input(object):
     
     self._initIndexes()
 
+    #self.remove(2)
+    #self.remove(5)
+    self.remove(7)
+    self.remove(9)
+
     #self.remove(6) # dupe of 1
     #self.remove(8) # dupe of 0
 
@@ -63,20 +68,18 @@ def traintest(dataSet, testPercent):
   # 70%     30%  70%                 30%
   dataPos = sum(i[-1] == 1.0 for i in dataSet)
   dataNeg = len(dataSet) - dataPos
-  print "datapos", dataPos, "dataneg", dataNeg
 
   # Remove class, pad to 19 features.
-  dataSet = [inst[:-1] + [0.0, 0.0] for inst in dataSet]
+  padding = [0.0] * (19 - len(dataSet[0]))
+  dataSet = [inst[:-1] + [0.0] + padding for inst in dataSet]
   
   testPos = dataPos * testPercent / 100
   testNeg = dataNeg * testPercent / 100
   assert testPos + testNeg == testPercent * len(dataSet) / 100
-  print "testpos", testPos, "testneg", testNeg
 
   trainPercent = 100 - testPercent
   trainPos = dataPos - testPos
   trainNeg = dataNeg - testNeg
-  print "trainpos", trainPos, "trainneg", trainNeg
   
   #trainSize = trainPos + trainNeg
   #assert trainPos + trainNeg == trainPercent * len(dataSet) / 100
@@ -90,7 +93,7 @@ def traintest(dataSet, testPercent):
   testSet = dataSet[trainPos - testPos:trainPos] + dataSet[-testNeg:]
   #assert len(testSet) == testSize
 
-  print "Split: train %d (%d+) trainPos %d (%d+)" % (
+  print "Split: train %d (%d+) test %d (%d+)" % (
     len(trainSet), trainPos, len(testSet), testPos)
 
   return (trainSet, trainPos), (testSet, testPos)

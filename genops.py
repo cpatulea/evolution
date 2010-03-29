@@ -6,6 +6,7 @@ import input
 import genplot
 import sys
 from ann import ANN, Parameters
+from classify import SampleTester
 
 log = logging.getLogger("genops")
 
@@ -142,23 +143,25 @@ def logFP(label, buf):
 
 def main():
   import input
-  logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
+  logging.basicConfig(level=logging.INFO, stream=sys.stdout)
   np.set_printoptions(precision=3, edgeitems=3, threshold=20)
 
   random.seed(1005108)
 
   a = ANN()
+  aTest = ANN()
   inp = input.Input("train3.tsv")
-  inp.remove(7)
-  inp.remove(9)
   dataSet = list(inp)
   
-  (trainSet, trainPositives), _ = input.traintest(dataSet, 30)
+  (trainSet, trainPositives), (testSet, testPositives) = input.traintest(dataSet, 30)
   
   n = len(trainSet) * 20/100
-  print "Train set: %d (%d+)" % (len(trainSet), trainPositives)
 
   a.prepare(trainSet, trainPositives, POPSIZE)
+  aTest.prepare(testSet, testPositives, 1) # best individual from each generation
+  
+  tester = SampleTester()
+  tester.prepare(testSet, testPositives)
 
   params = []
   generatePop(params)
@@ -176,14 +179,16 @@ def main():
     lifts = a.lift(n)
     logFP("Lifts", lifts)
 
-    genplot.addGeneration(lifts, genIndex)
-
     taggedParams = sorted(zip(lifts, params, range(len(params))),
                           key=lambda (l, p, i): l,
                           reverse=True)
     sortedParams = [p for l, p, i in taggedParams]
     logFP("Sorted pop", sortedParams)
 
+    testLift, _ = tester.test(sortedParams[0])
+
+    genplot.addGeneration(lifts, testLift, genIndex)
+    
     params = generateGeneration(sortedParams)
     print "Generation", genIndex, "complete."
 
