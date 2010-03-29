@@ -110,10 +110,10 @@ Function for determining initial parameter values
 @return a random value from (currently) an exponential distribution
 """
 def getInitialFloat():
-    return random.expovariate(2)*random.choice([-1,1])
+    return random.expovariate(6)*random.choice([-1,1])
 
 def getMutationValue():
-    return random.expovariate(12)*random.choice([-1,1])
+    return random.expovariate(8)*random.choice([-1,1])
     #return random.normalvariate(0.0, 7.0)
 
 INDEX_LAMBDA = -math.log(0.92)
@@ -162,7 +162,7 @@ def main():
   params = []
   generatePop(params)
 
-  for genIndex in range(5):
+  for genIndex in range(100):
     print "Generation", genIndex, "starting."
     logFP("Population", params)
     outputValues = a.evaluate(params, returnOutputs=True)
