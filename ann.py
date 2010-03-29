@@ -36,7 +36,27 @@ class Parameters(ctypes.Structure):
     s.append("  ho=%s,\n" % self._float_list_str(list(self.ho)))
     s.append(")")
     return "".join(s)
+
+  def _array_repr(self, dims, value):
+    if dims == []:
+      return "%e" % value
+
+    typestr = "ctypes.c_float"
+    for dim in reversed(dims):
+      typestr = "(%d*%s)" % (dim, typestr)
     
+    valuestr = typestr + "(" + ", ".join(self._array_repr(dims[1:], subvalue) for subvalue in value) + ")"
+    return valuestr
+
+  def __repr__(self):
+    r = ["Parameters(\n"]
+    r.append("  ih=%s,\n" % self._array_repr([4, 19], self.ih))
+    r.append("  c=%s,\n" % self._array_repr([4, 19], self.c))
+    r.append("  w=%s,\n" % self._array_repr([4], self.w))
+    r.append("  ho=%s\n" % self._array_repr([4], self.ho))
+    r.append(")")
+    return "".join(r)
+
 class ANN(object):
   mod = compiler.SourceModule(open("ann_kernels.cu").read())
 
