@@ -125,12 +125,10 @@ class Input(object):
     self._indexes = range(len(self.data[0]))
 
   def _realIndex(self, featureIndex):
-    realIndex = self._indexes.index(featureIndex)
-
-    if realIndex == -1:
-      raise ValueError("Feature %d not present (removed?)", index)
-    
-    return realIndex
+    try:
+      return self._indexes.index(featureIndex)
+    except ValueError:
+      raise ValueError("Feature %d not present (already removed?)" % featureIndex)
 
   def _remove(self, index):
     realIndex = self._realIndex(index)
