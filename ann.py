@@ -312,6 +312,7 @@ class ANN(object):
     omax = np.nanmax(topOutputs)
     threshold = self.thresholdsMat[topIndex]
     
+    """
     log.info("The top ANN's outputs are:")
     log.info(
       "  %.02f%% NaN, %.02f%% -inf, %.02f%% +inf, min %.02e, max %.02e, thresh %.02e",
@@ -319,7 +320,8 @@ class ANN(object):
       100.0 * neginfs / len(topOutputs),
       100.0 * posinfs / len(topOutputs),
       omin, omax, threshold)
-
+    """
+    
     return lifts
 
 def linterp(a, b, p):
