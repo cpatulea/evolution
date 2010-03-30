@@ -8,7 +8,7 @@ import random
 
 class SampleTester(object):
   def prepare(self, testSet, rand, numSamples=20, samplePercent=50):
-    """Prepares for bootstrap estimation of list of one ANN.
+    """Prepares for bootstrap estimation of lift of one ANN.
     
     @param testSet: test set on which to test the ANN
     @type testSet: input.DataSet
