@@ -60,7 +60,7 @@ class SampleTester(object):
     avg, std = np.mean(lifts), np.std(lifts)
     return avg, std
 
-def main():
+def main(annfile):
   randSample = random.Random(input.SAMPLE_SEED)
   
   inp = input.Input("train3.tsv", randSample)
@@ -68,7 +68,6 @@ def main():
   print "Test set:",
   inp.testSet.show()
 
-  annfile = sys.argv[1]
   param = eval(open(annfile).read(),
     {"Parameters": Parameters,
      "ctypes": ctypes})
@@ -82,4 +81,8 @@ def main():
   print "Lift:", "avg: %.03f" % avg, "std: %.03f" % std
 
 if __name__ == "__main__":
-  main()
+  if len(sys.argv) != 2:
+    print "Usage: classify.py <file.ann>"
+    sys.exit(1)
+
+  main(sys.argv[1])
