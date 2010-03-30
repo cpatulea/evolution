@@ -68,7 +68,7 @@ def main(annfile):
   print "Test set:",
   inp.testSet.show()
 
-  param = eval(open(annfile).read(),
+  param = eval(compile(open(annfile).read(), annfile, "eval"),
     {"Parameters": Parameters,
      "ctypes": ctypes})
 
