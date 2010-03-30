@@ -60,7 +60,7 @@ class Parameters(ctypes.Structure):
 class ANN(object):
   mod = compiler.SourceModule(open("ann_kernels.cu").read())
 
-  def prepare(self, trainSet, trainPositives, popSize):
+  def prepare(self, trainSet, popSize):
     """Prepare for many parallel ANN fitness calculations.
     
                          len(trainSet[0]) x len(trainSet)
@@ -72,20 +72,14 @@ class ANN(object):
     sizeof(Params))    +--------+--------+--------+----+
      
     @param trainSet: training set
-    @type trainSet: list of tuples, one tuple per training instance, positive
-                    instances first, followed by negative instances
-    @param trainPositives: number of positive instances at the beginning of the
-                           training set
-    @type trainPositives: int
+    @type trainSet: input.DataSet
     @param popSize: number of networks which will be evaluated in each run
     @type popSize: int
     """
-    self.trainSize = len(trainSet)
+    self.trainSet = trainSet
     self.popSize = popSize
-    log.debug("training set size: %d", self.trainSize)
+    log.debug("training set size: %d", self.trainSet.size)
     log.debug("population size: %d", self.popSize)
-
-    self.trainPositives = trainPositives
 
     # Calculate block/grid size and prepare evaluate() kernel.
     # (avoids Function.__call__ overhead)
@@ -96,7 +90,7 @@ class ANN(object):
     log.debug("evaluate kernel block dim: %r", self.evaluateBlockDim)
     
     blockDimX = self.evaluateBlockDim[0]
-    self.evaluateGridDim = ((self.trainSize + blockDimX - 1) / blockDimX,
+    self.evaluateGridDim = ((self.trainSet.size + blockDimX - 1) / blockDimX,
                             self.popSize)
     log.debug("evaluate kernel grid dim: %r", self.evaluateGridDim)
 
@@ -151,9 +145,9 @@ class ANN(object):
     # input feature across instances occur at consecutive memory addresses.
     # (avoids "Strided Accesses", see CUDA Best Practices Guide section 3.2.1.4)
     # TODO: Align each feature on 128-byte boundary?
-    trainSetMat = np.asmatrix(trainSet, np.float32)
+    trainSetMat = np.asmatrix(trainSet.allInstances(), np.float32)
     assert trainSetMat.shape[1] == Parameters.ih.size / Parameters.w.size
-    self.trainSet = driver.to_device(
+    self.trainSetDev = driver.to_device(
       trainSetMat.reshape(tuple(reversed(trainSetMat.shape)), order="F")
     )
 
@@ -163,7 +157,7 @@ class ANN(object):
     self.params = driver.mem_alloc(
       self.popSize * ctypes.sizeof(Parameters) * floatBytes
     )
-    self.outputs = driver.mem_alloc(self.popSize * self.trainSize * floatBytes)
+    self.outputs = driver.mem_alloc(self.popSize * self.trainSet.size * floatBytes)
     
     uintBytes = np.dtype(np.uint32).itemsize
     self.counts = driver.mem_alloc(
@@ -188,11 +182,11 @@ class ANN(object):
     driver.memcpy_htod(self.params, paramArrayType(*params))
 
     # TODO: remove
-    driver.memset_d8(self.outputs, 0, self.popSize * self.trainSize * 4)
+    driver.memset_d8(self.outputs, 0, self.popSize * self.trainSet.size * 4)
     
     self.evaluateKernel.prepared_call(self.evaluateGridDim,
-                                      self.trainSet,
-                                      self.trainSize,
+                                      self.trainSetDev,
+                                      self.trainSet.size,
                                       self.params,
                                       self.popSize,
                                       self.outputs)
@@ -200,7 +194,7 @@ class ANN(object):
     driver.Context.synchronize()
 
     self.outputsMat = driver.from_device(self.outputs,
-                                         shape=(self.popSize, self.trainSize),
+                                         shape=(self.popSize, self.trainSet.size),
                                          dtype=np.float32)
     
     if returnOutputs:
@@ -256,7 +250,7 @@ class ANN(object):
       log.debug("begin pass size %d", passSize)
       self.nlargestKernel.prepared_call(self.nlargestGridDim,
                                         self.outputs,
-                                        self.trainSize,
+                                        self.trainSet.size,
                                         self.popSize,
                                         passSize,
                                         self.thresholds,
@@ -282,8 +276,8 @@ class ANN(object):
     """
     self.countKernel.prepared_call(self.countGridDim,
                                    self.outputs,
-                                   self.trainSize,
-                                   self.trainPositives,
+                                   self.trainSet.size,
+                                   len(self.trainSet.positives),
                                    self.popSize,
                                    self.thresholds,
                                    self.counts)
@@ -301,7 +295,7 @@ class ANN(object):
     self.nlargestPositiveRate = np.float32(self.countSums) / n
     log.debug("positive rate (n largest outputs): %s", str(self.nlargestPositiveRate))
     
-    overallPositiveRate = float(self.trainPositives) / float(self.trainSize)
+    overallPositiveRate = float(len(self.trainSet.positives)) / float(self.trainSet.size)
     log.debug("positive rate (overall): %.04f", overallPositiveRate)
     
     lifts = self.nlargestPositiveRate / overallPositiveRate
@@ -372,20 +366,20 @@ def showParams(p):
   
   print "Top poscount: %d" % a.countSums[topIndex]
   
-  cpuCount = sum(o > topThreshold for o in topOutputs[0:a.trainPositives])
+  cpuCount = sum(o > topThreshold for o in topOutputs[0:len(a.trainSet.positives)])
   print "Top cpucount: %d" % cpuCount
 
   print "Top posrate: %.02e" % a.nlargestPositiveRate[topIndex]
   print "Top lift: %.02e" % lifts[topIndex]
 
-  print "Train set: %d+ %d-" % (a.trainPositives, len(trainSet) - a.trainPositives)
+  print "Train set: %d+ %d-" % (len(a.trainSet.positives), len(a.trainSet.negatives))
 
   #histRange = (topMin - .1*topRange, topMax + .1*topRange)
   histRange = (.5*topThreshold, 1.5*topThreshold)
   print "Hist range:", histRange
-  histPos, binsPos = np.histogram(goodOutputs[0:a.trainPositives],
+  histPos, binsPos = np.histogram(goodOutputs[0:len(a.trainSet.positives)],
                                   bins=20, range=histRange)
-  histNeg, binsNeg = np.histogram(goodOutputs[a.trainPositives:],
+  histNeg, binsNeg = np.histogram(goodOutputs[len(a.trainSet.positives):],
                                   bins=20, range=histRange)
   assert (binsPos == binsNeg).all()
   bins = binsPos
@@ -395,20 +389,17 @@ def showParams(p):
 
 def main():
   import input
+  import random
   logging.basicConfig(level=logging.DEBUG)
   np.set_printoptions(precision=3, edgeitems=3, threshold=20)
 
-  a = ANN()
-  inp = input.Input("train3.tsv")
-  inp.remove(7)
-  inp.remove(9)
-  trainSet = list(inp)
+  randSample = random.Random(input.RAND_SAMPLE)
   
-  trainPositives = sum(i[-1] == 1.0 for i in trainSet)
-  trainSet = [instance[:-1] + [0, 0] for instance in trainSet]
-
+  a = ANN()
+  inp = input.Input("train3.tsv", randSample)
+  
   popSize = 450
-  timefun(a.prepare, trainSet, trainPositives, popSize)
+  timefun(a.prepare, inp.trainSet, popSize)
 
   params = []
 
@@ -436,11 +427,11 @@ def main():
 
   outputValues = timefun(a.evaluate, params, True)
 
-  n = len(trainSet) * 20/100
+  n = inp.trainSet.size * 20/100
   thresholds = timefun(a.nlargest, n)
 
   lifts = timefun(a.lift, n)
-  print lifts
+  print "Lifts:", lifts
 
 if __name__ == "__main__":
   main()

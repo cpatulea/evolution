@@ -146,22 +146,23 @@ def main():
   logging.basicConfig(level=logging.INFO, stream=sys.stdout)
   np.set_printoptions(precision=3, edgeitems=3, threshold=20)
 
-  random.seed(1005108)
+  random.seed(1005108) # used by the GA
+  randSample = random.Random(input.SAMPLE_SEED) # used for data set sampling
 
+  inp = input.Input("train3.tsv", randSample)
+  print "Train set:",
+  inp.trainSet.show()
+  
+  print "Test set:",
+  inp.testSet.show()
+
+  n = inp.trainSet.size * 20/100
   a = ANN()
-  aTest = ANN()
-  inp = input.Input("train3.tsv")
-  dataSet = list(inp)
-  
-  (trainSet, trainPositives), (testSet, testPositives) = input.traintest(dataSet, 30)
-  
-  n = len(trainSet) * 20/100
-
-  a.prepare(trainSet, trainPositives, POPSIZE)
-  aTest.prepare(testSet, testPositives, 1) # best individual from each generation
+  a.prepare(inp.trainSet, POPSIZE)
   
   tester = SampleTester()
-  tester.prepare(testSet, testPositives)
+  tester.prepare(inp.testSet, randSample)
+  tester.showSampleSets()
 
   params = []
   generatePop(params)
@@ -190,7 +191,6 @@ def main():
     genplot.addGeneration(lifts, testLift, genIndex)
     
     params = generateGeneration(sortedParams)
-    print "Generation", genIndex, "complete."
 
   args = sys.argv[1:]
   if len(args) == 1:

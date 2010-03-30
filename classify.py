@@ -7,25 +7,42 @@ import numpy as np
 import random
 
 class SampleTester(object):
-  def prepare(self, testSet, testPos, numSamples=20, samplePercent=70):
-    self.numSamples = numSamples
-    self.samplePercent = samplePercent
+  def prepare(self, testSet, rand, numSamples=20, samplePercent=50):
+    """Prepares for bootstrap estimation of list of one ANN.
     
-    sampleSize = len(testSet) * self.samplePercent / 100
-    samplePos =       testPos * self.samplePercent / 100
-    sampleNeg = sampleSize - samplePos
-    self.sampleSize = sampleSize
-
+    @param testSet: test set on which to test the ANN
+    @type testSet: input.DataSet
+    @param rand: source of randomness for bootstrap samples
+    @type rand: random.Random
+    @param numSamples: number of bootstrap samples
+    @type numSamples: int
+    @param samplePercent: size of each sample, in percent of the testSet
+    @type samplePercent: int
+    """
+    self.sampleSets = []
     self.anns = []
-    for sampleIndex in range(self.numSamples):
-      sampleSet = (random.sample(testSet[:testPos], samplePos) +
-                   random.sample(testSet[testPos:], sampleNeg))
+    for sampleIndex in range(numSamples):
+      sampleSet = testSet.sample(samplePercent, rand)
+      self.sampleSets.append(sampleSet)
 
       a = ANN()
-      a.prepare(sampleSet, samplePos, 1)
+      a.prepare(sampleSet, popSize=1)
       self.anns.append(a)
 
+    self.sampleSize = self.sampleSets[0].size
+
+  def showSampleSets(self):
+    for sampleIndex, sampleSet in enumerate(self.sampleSets):
+      print "Sample %d:" % sampleIndex,
+      sampleSet.show()
+
   def test(self, param):
+    """Performs the bootstrap test to estimate one ANN's lift.
+    
+    @param param: ANN to be tested
+    @type param: ann.Parameters
+    @return (float, float): lift average and standard deviation over numSamples
+    """
     n = self.sampleSize * 20 / 100
 
     lifts = []
@@ -40,30 +57,29 @@ class SampleTester(object):
       lifts.append(lift)
       #print "Lift@20: %.02f" % lift
 
-    avg, std = float(sum(lifts)) / len(lifts), np.std(lifts)
+    avg, std = np.mean(lifts), np.std(lifts)
     return avg, std
 
 def main():
-  dataSet = input.Input("train3.tsv")
-  dataSet = list(dataSet)
+  randSample = random.Random(input.SAMPLE_SEED)
   
-  _, (testSet, testPos) = input.traintest(dataSet, 30)
+  inp = input.Input("train3.tsv", randSample)
   
-  print "Test set size: %d, %.02f%%+" % (len(testSet), 100.0 * testPos / len(testSet))
+  print "Test set:",
+  inp.testSet.show()
 
   annfile = sys.argv[1]
   param = eval(open(annfile).read(),
     {"Parameters": Parameters,
      "ctypes": ctypes})
 
-  random.seed(1005108)
-  
   tester = SampleTester()
-  tester.prepare(testSet, testPos)
+  tester.prepare(inp.testSet, randSample)
+  tester.showSampleSets()
+  
   avg, std = tester.test(param)
 
-  print "avg:", avg
-  print "std:", std
+  print "Lift:", "avg: %.03f" % avg, "std: %.03f" % std
 
 if __name__ == "__main__":
   main()
