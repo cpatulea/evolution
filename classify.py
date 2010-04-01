@@ -1,5 +1,5 @@
 #!/usr/bin/python
-from ann import Parameters, ANN
+from ann2layer import Parameters, ANN
 import input
 import sys
 import ctypes
@@ -63,7 +63,7 @@ class SampleTester(object):
 def main(annfile):
   randSample = random.Random(input.SAMPLE_SEED)
   
-  inp = input.Input("train3.tsv", randSample)
+  inp = input.Input("train3-std.tsv", randSample)
   
   print "Test set:",
   inp.testSet.show()

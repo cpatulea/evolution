@@ -2,13 +2,16 @@
 #include <math_constants.h>
 
 #define ARRAY_SIZE(array) (sizeof(array) / sizeof((array)[0]))
-#define NODES_PER_LAYER 6
+#define NODES_PER_LAYER 4
 
 struct Parameters {
-  float ih[NODES_PER_LAYER][19];  // input->hidden edge weight
-  float c[NODES_PER_LAYER][19];   // RBF center
-  float w[NODES_PER_LAYER];       // RBF width
-  float ho[NODES_PER_LAYER];      // hidden->output edge weight
+  float ih[NODES_PER_LAYER][19];			// input->hidden edge weight
+  float hh[NODES_PER_LAYER][NODES_PER_LAYER];// hidden->hidden edge weight
+  float c[NODES_PER_LAYER][19];				// RBF center
+  float c2[NODES_PER_LAYER][NODES_PER_LAYER];// RBF center second layer
+  float w[NODES_PER_LAYER];					// RBF width
+  float w2[NODES_PER_LAYER];				// RBF width second layer
+  float ho[NODES_PER_LAYER];				// hidden->output edge weight
 };
 
 __global__ void evaluate(
@@ -25,6 +28,7 @@ __global__ void evaluate(
   if (trainIndex < trainSize && paramsIndex < popSize) {
     // Read input features.
     float inputs[19];
+	float l2inputs[NODES_PER_LAYER] = {0.f};
     for (int i = 0; i < ARRAY_SIZE(inputs); i++) {
       inputs[i] = trainSet[i * trainSize + trainIndex];
     }
@@ -33,7 +37,7 @@ __global__ void evaluate(
     const Parameters * const p = &params[paramsIndex];
 
     // Calculate network output.
-    float output = 0.f;
+	float output = 0.f;
     
     // TODO: Make sure this gets unrolled
     for (int j = 0; j < NODES_PER_LAYER; j++) {
@@ -44,8 +48,17 @@ __global__ void evaluate(
       }
       
       const float h = __expf(-p->w[j] * d2); // Gaussian RBF
-      output += h * p->ho[j];
+
+	  for (int i = 0; i < NODES_PER_LAYER; i++) {
+		const float d = h * p->hh[j][i] - p->c2[j][i];
+		l2inputs[i] += d * d;
+	  }
     }
+
+	for (int j = 0; j < NODES_PER_LAYER; j++) {
+	  const float h = __expf(-p->w[j] * l2inputs[j]); // Gaussian RBF
+      output += h * p->ho[j];
+	}
     
     outputs[outputIndex] = output;
   }

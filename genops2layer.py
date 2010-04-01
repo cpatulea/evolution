@@ -5,12 +5,13 @@ import md5
 import input
 import genplot
 import sys
-from ann import ANN, Parameters
+from ann2layer import ANN, Parameters
 from classify import SampleTester
 
 log = logging.getLogger("genops")
 
 POPSIZE = 50
+TOTAL_GENS = 5000
 
 """
 Population generation / initializer.  Uses method from Montana and Davis.
@@ -25,7 +26,11 @@ def generatePop(generation):
             for k in range(19):
                 nextMember.ih[j][k] = getInitialFloat()
                 nextMember.c[j][k] = getInitialFloat()
+            for n in range(ANN.NODES_PER_LAYER):
+                nextMember.hh[j][n] = getInitialFloat()
+                nextMember.c2[j][n] = getInitialFloat()
             nextMember.w[j] = getInitialFloat()
+            nextMember.w2[j] = getInitialFloat()
             nextMember.ho[j] = getInitialFloat()
         generation.append(nextMember)
 
@@ -73,15 +78,27 @@ def mutate(xman, mutateValue):
         for j in range(19):
             xmanJr.ih[i][j] = xman.ih[i][j]
             xmanJr.c[i][j] = xman.c[i][j]
+        for j in range(ANN.NODES_PER_LAYER):
+            xmanJr.hh[i][j] = xman.hh[i][j]
+            xmanJr.c2[i][j] = xman.c2[i][j]
         xmanJr.w[i] = xman.w[i]
+        xmanJr.w2[i] = xman.w2[i]
         xmanJr.ho[i] = xman.ho[i]
 
-    node = random.randint(0,ANN.NODES_PER_LAYER-1)
-    for i in range(19):
-        xmanJr.ih[node][i] += getMutationValue(mutateValue)
-        xmanJr.c[node][i] += getMutationValue(mutateValue)
-    xmanJr.w[node] += getMutationValue(mutateValue)
-    xmanJr.ho[node] += getMutationValue(mutateValue)
+    node = random.randint(0, ANN.NODES_PER_LAYER-1)
+    if random.choice([True, False]):
+        for i in range(19):
+            xmanJr.ih[node][i] += getMutationValue(mutateValue)
+            xmanJr.c[node][i] += getMutationValue(mutateValue)
+        xmanJr.w[node] += getMutationValue(mutateValue)
+        for i in range(ANN.NODES_PER_LAYER):
+            xmanJr.hh[i][node] += getMutationValue(mutateValue)
+    else:
+        for i in range(ANN.NODES_PER_LAYER):
+            xmanJr.hh[i][node] += getMutationValue(mutateValue)
+            xmanJr.c2[i][node] += getMutationValue(mutateValue)
+        xmanJr.w2[node] += getMutationValue(mutateValue)
+        xmanJr.ho[node] += getMutationValue(mutateValue)
     
     return xmanJr
 
@@ -101,7 +118,11 @@ def mate(parent1, parent2):
         for j in range(19):
             child.ih[i][j] = parentList[random.randint(0,1)].ih[i][j]
             child.c[i][j] = parentList[random.randint(0,1)].c[i][j]
+        for j in range(ANN.NODES_PER_LAYER):
+            child.hh[i][j] = parentList[random.randint(0,1)].hh[i][j]
+            child.c2[i][j] = parentList[random.randint(0,1)].c2[i][j]
         child.w[i] = parentList[random.randint(0,1)].w[i]
+        child.w2[i] = parentList[random.randint(0,1)].w2[i]
         child.ho[i] = parentList[random.randint(0,1)].ho[i]
 
     return child
@@ -115,8 +136,8 @@ def getInitialFloat():
     return random.expovariate(2)*random.choice([-1,1])
 
 def getMutationValue(mutateValue):
-    return random.expovariate(mutateValue)*random.choice([-1,1])
-    #return random.normalvariate(0.0, 7.0)
+    #return random.expovariate(mutateValue)*random.choice([-1,1])
+    return random.normalvariate(0.0, 0.2)
 
 INDEX_LAMBDA = -math.log(0.92)
 
@@ -166,9 +187,8 @@ def main():
 
   params = []
   generatePop(params)
-  mutateValue = 6.0
 
-  for genIndex in range(5000):
+  for genIndex in range(TOTAL_GENS):
     print "Generation", genIndex, "starting."
     logFP("Population", params)
     outputValues = a.evaluate(params, returnOutputs=True)
@@ -190,10 +210,9 @@ def main():
     testLift, _ = tester.test(sortedParams[0])
 
     genplot.addGeneration(lifts, testLift, genIndex)
-    
+
+    mutateValue = 1.0
     params = generateGeneration(sortedParams, mutateValue)
-    if genIndex%500 == 499:
-        mutateValue -= 0.5
 
   args = sys.argv[1:]
   if len(args) == 1:

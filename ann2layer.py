@@ -13,8 +13,8 @@ import math
 log = logging.getLogger("ann")
 
 class ANN(object):
-  NODES_PER_LAYER = 6
-  mod = compiler.SourceModule(open("ann_kernels.cu").read())
+  NODES_PER_LAYER = 4
+  mod = compiler.SourceModule(open("ann_kernels_twolayer.cu").read())
 
   def prepare(self, trainSet, popSize):
     """Prepare for many parallel ANN fitness calculations.
@@ -284,7 +284,10 @@ class Parameters(ctypes.Structure):
   _fields_ = [("ih", ANN.NODES_PER_LAYER * (19 * ctypes.c_float)),
               ("c", ANN.NODES_PER_LAYER * (19 * ctypes.c_float)),
               ("w", ANN.NODES_PER_LAYER * ctypes.c_float),
-              ("ho", ANN.NODES_PER_LAYER * ctypes.c_float)]
+              ("w2", ANN.NODES_PER_LAYER * ctypes.c_float),
+              ("ho", ANN.NODES_PER_LAYER * ctypes.c_float),
+              ("hh", ANN.NODES_PER_LAYER * (ANN.NODES_PER_LAYER * ctypes.c_float)),
+              ("c2", ANN.NODES_PER_LAYER * (ANN.NODES_PER_LAYER * ctypes.c_float))]
 
 
 
@@ -391,52 +394,3 @@ def showParams(p):
   
   for bl, bh, hp, hn in zip(bins[:-1], bins[1:], histPos, histNeg):
     print "%.02e .. %.02e: %d+ %d-" % (bl, bh, hp, hn)
-
-def main():
-  import input
-  import random
-  logging.basicConfig(level=logging.DEBUG)
-  np.set_printoptions(precision=3, edgeitems=3, threshold=20)
-
-  randSample = random.Random(input.RAND_SAMPLE)
-  
-  a = ANN()
-  inp = input.Input("train3.tsv", randSample)
-  
-  popSize = 50
-  timefun(a.prepare, inp.trainSet, popSize)
-
-  params = []
-
-  for paramsIndex in range(popSize):
-    p = Parameters()
-    for i in range(19):
-      p.ih[0][i] = 0.0
-      p.ih[1][i] = p.ih[2][i] = p.ih[3][i] = 0.0
-
-      p.c[0][i] = 0.0
-      p.c[1][i] = p.c[2][i] = p.c[3][i] = 0.0
-
-    p.ih[0][0] = 1.0
-    p.ih[1][11] = 1.0
-
-    p.w[0] = -1e-4
-    p.w[1] = -1.0 / (10.0 ** linterp(0, 4, float(paramsIndex) / popSize))
-    p.w[2] = p.w[3] = 0.0
-
-    p.ho[0] = 1.0
-    p.ho[1] = -1.0
-    p.ho[2] = p.ho[3] = 0.0
-
-    params.append(p)
-
-  outputValues = timefun(a.evaluate, params, True)
-
-  n = inp.trainSet.size * 20/100
-  thresholds = timefun(a.nlargest, n)
-
-  lifts = timefun(a.lift, n)
-  print "Lifts:", lifts
-
-if __name__ == "__main__":
-  main()
