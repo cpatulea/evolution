@@ -268,15 +268,13 @@ class ANN(object):
     omax = np.nanmax(topOutputs)
     threshold = self.thresholdsMat[topIndex]
     
-    """
-    log.info("The top ANN's outputs are:")
-    log.info(
+    log.debug("The top ANN's outputs are:")
+    log.debug(
       "  %.02f%% NaN, %.02f%% -inf, %.02f%% +inf, min %.02e, max %.02e, thresh %.02e",
       100.0 * nans / len(topOutputs),
       100.0 * neginfs / len(topOutputs),
       100.0 * posinfs / len(topOutputs),
       omin, omax, threshold)
-    """
     
     return lifts
 
