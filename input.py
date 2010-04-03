@@ -89,11 +89,29 @@ class DataSet(object):
       print "  Last 3 negatives:"
       _showInsts(self.negatives[-3:])
 
+class BlindSet(object):
+  def __init__(self, instances):
+    self.instances = instances
+
+  def allInstances(self):
+    return self.instances
+
+  def show(self):
+    m = md5.new()
+    for instance in self.allInstances():
+      m.update(array.array("f", instance))
+    fingerprint = m.hexdigest()
+
+    print "total %d fingerprint %s" % (
+      len(self.allInstances()),
+      fingerprint
+    )
+
 class Input(object):
-  def __init__(self, infile, rand):
+  def __init__(self, infile, rand, blindfile=None):
     reader = csv.reader(map(string.strip, open(infile)), delimiter="\t")
     self.data = [map(float, row) for row in reader]
-    featureCount = len(self.data[0])
+    featureCount = len(self.data[0]) - 1
 
     self._initIndexes()
 
@@ -111,7 +129,7 @@ class Input(object):
       raise ValueError("Data set must have positive instances first")
 
     # Remove class
-    self._remove(featureCount - 1)
+    self._remove(featureCount)
     
     # Pad to 19 features
     padding = [0.0] * (19 - len(self.data[0]))
@@ -119,6 +137,17 @@ class Input(object):
     
     dataSet = DataSet(self.data[:numPositives], self.data[numPositives:])
     self.trainSet, self.testSet = dataSet.split(70, rand)
+    
+    if blindfile is not None:
+      blindreader = csv.reader(map(string.strip, open(blindfile)), delimiter="\t")
+      blinddata = [map(float, row) for row in blindreader]
+      if len(blinddata[0]) != featureCount:
+        raise ValueError("Blind set must have same number of features as "
+                         "training set (had %d, expected %d)" % (
+                         len(blinddata[0]), featureCount))
+
+      blinddata = [map(row.__getitem__, self._indexes) for row in blinddata]
+      self.blindSet = BlindSet(blinddata)
 
   def _initIndexes(self):
     # keeps indexes consistent across removal of features
@@ -140,7 +169,7 @@ class Input(object):
 
 if __name__ == "__main__":
   randSample = random.Random(SAMPLE_SEED)
-  inp = Input("train3.tsv", randSample)
+  inp = Input("train3.tsv", randSample, blindfile="test3.tsv")
   print "Train:",
   inp.trainSet.show()
   print "Test:",
@@ -153,3 +182,6 @@ if __name__ == "__main__":
   sampleSet = inp.testSet.sample(50, randSample)
   print "Sample 1:",
   sampleSet.show()
+
+  print "Blind:"
+  inp.blindSet.show()
