@@ -92,6 +92,7 @@ class DataSet(object):
 class BlindSet(object):
   def __init__(self, instances):
     self.instances = instances
+    self.size = len(self.instances)
 
   def allInstances(self):
     return self.instances
@@ -147,6 +148,8 @@ class Input(object):
                          len(blinddata[0]), featureCount))
 
       blinddata = [map(row.__getitem__, self._indexes) for row in blinddata]
+      blinddata = [row + padding for row in blinddata]
+
       self.blindSet = BlindSet(blinddata)
 
   def _initIndexes(self):

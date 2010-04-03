@@ -13,7 +13,7 @@ import math
 log = logging.getLogger("ann")
 
 class ANN(object):
-  NODES_PER_LAYER = 6
+  NODES_PER_LAYER = 4
   mod = compiler.SourceModule(open("ann_kernels.cu").read())
 
   def prepare(self, trainSet, popSize):
@@ -284,8 +284,6 @@ class Parameters(ctypes.Structure):
               ("w", ANN.NODES_PER_LAYER * ctypes.c_float),
               ("ho", ANN.NODES_PER_LAYER * ctypes.c_float)]
 
-
-
   def _float_list_str(self, l):
     return ", ".join("%401g" % el for el in l)
 
@@ -324,6 +322,12 @@ class Parameters(ctypes.Structure):
     r.append("  ho=%s\n" % self._array_repr([ANN.NODES_PER_LAYER], self.ho))
     r.append(")")
     return "".join(r)
+
+  @staticmethod
+  def from_file(annfile):
+    return eval(compile(open(annfile).read(), annfile, "eval"),
+                {"Parameters": Parameters,
+                 "ctypes": ctypes})
 
 def linterp(a, b, p):
   return a + (b - a) * p

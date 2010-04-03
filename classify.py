@@ -68,9 +68,7 @@ def main(annfile):
   print "Test set:",
   inp.testSet.show()
 
-  param = eval(compile(open(annfile).read(), annfile, "eval"),
-    {"Parameters": Parameters,
-     "ctypes": ctypes})
+  param = Parameters.from_file(annfile)
 
   tester = SampleTester()
   tester.prepare(inp.testSet, randSample)
