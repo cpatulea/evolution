@@ -32,3 +32,4 @@ Evaluation
 
 Future Work
   Backpropagation / Hillclimbing
+  Islands / Pseudoislands (metalearning)
