@@ -1,0 +1,31 @@
+SYSC 5108 Project Final Report
+
+Background
+  ANNs
+  Nominal to Real
+    Othogonal Coding
+    Bayesian (paper?)
+  GA training of ANNs
+  CUDA-powered GA/ANN
+
+Preliminary Data Analysis
+  Duplicate Features
+  Linear Discriminant Analysis
+
+Data Preprocessing
+  Nominal to Real
+  Normalization
+
+Classifier Design
+  ANN Structure
+  Chromosome Structure
+  Effect of GA Parameters
+
+Implementation
+  Mapping onto CUDA Architecture
+  Parallel ANN Computation
+  Lift Calculation
+  Benchmarks
+
+Evaluation
+  Data Partitioning and Bootstrapping
