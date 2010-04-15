@@ -1,0 +1,163 @@
+
+% ===========================================================================
+% Title:
+% ---------------------------------------------------------------------------
+% to create Type I fonts type "dvips -P cmz -t letter <filename>"
+% ===========================================================================
+\documentclass[11pt]{article}       %--- LATEX 2e base
+\usepackage{latexsym}               %--- LATEX 2e base
+%---------------- Wide format -----------------------------------------------
+\textwidth=6in \textheight=9in \oddsidemargin=0.25in
+\evensidemargin=0.25in \topmargin=-0.5in
+%--------------- Algorithm --------------------------------------------------
+\newtheorem{algX}{Algorithm}
+\newenvironment{algorithm}       {\begin{algX}\begin{em}}%
+                                 {\par\noindent --- End of Algorithm ---
+                                 \end{em}\end{algX}}
+\newcommand{\step}[2]            {\begin{list}{}
+                                  {  \setlength{\topsep}{0cm}
+                                     \setlength{\partopsep}{0cm}
+                                     \setlength{\leftmargin}{0.8cm}
+                                     \setlength{\labelwidth}{0.7cm}
+                                     \setlength{\labelsep}{0.1cm}    }
+                                  \item[#1]#2    \end{list}}
+                                 % usage: \begin{algorithm} \label{xyz}
+                                 %        ... \step{(1)}{...} ...
+                                 %        \end{algorithm}
+%--------------- Figures ----------------------------------------------------
+\usepackage{graphicx}
+
+\newcommand{\includeFig}[3]      {\begin{figure}[htb] \begin{center}
+                                 \includegraphics
+                                 [width=4in,keepaspectratio]
+                                 {#2}\caption{\label{#1}#3} \end{center} \end{figure}}
+                                 % usage: \includeFig{label}{file}{caption}
+
+
+% ===========================================================================
+\begin{document}
+% ===========================================================================
+
+% ############################################################################
+% Title
+% ############################################################################
+
+\title{Accelerating Genetic ANN Training using the CUDA Platform}
+
+
+% ############################################################################
+% Author(s) (no blank lines !)
+\author{
+% ############################################################################
+Catalin Patulea and Robert Peace\\
+School of Systems and Computer Engineering\\
+Carleton University\\
+Ottawa, Canada K1S 5B6\\
+{\em rpeace@sce.carleton.ca}
+% ############################################################################
+} % end-authors
+% ############################################################################
+
+\maketitle
+
+% ############################################################################
+% Abstract
+% ############################################################################
+\begin{abstract}
+Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
+\end{abstract}
+
+% ############################################################################
+\section{Introduction} \label{intro}
+% ############################################################################
+Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
+
+% ############################################################################
+\section{Background} \label{background}
+% ############################################################################
+Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
+
+% ----------------------------------------------------------------------------
+\subsection{Artificial Neural Networks} \label{ann}
+% ----------------------------------------------------------------------------
+Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
+
+% ----------------------------------------------------------------------------
+\subsection{Genetic Algorithms} \label{ga}
+% ----------------------------------------------------------------------------
+Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
+
+% ----------------------------------------------------------------------------
+\subsection{The CUDA Platform} \label{cuda}
+% ----------------------------------------------------------------------------
+Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
+
+% ############################################################################
+\section{Methods} \label{algimp}
+% ############################################################################
+Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
+
+% ----------------------------------------------------------------------------
+\subsection{Preliminary Data Analysis} \label{prelim}
+% ----------------------------------------------------------------------------
+Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
+
+% ----------------------------------------------------------------------------
+\subsection{Data Preprocessing Steps} \label{preprocessing}
+% ----------------------------------------------------------------------------
+Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
+
+% ----------------------------------------------------------------------------
+\subsection{Classifier Design} \label{design}
+% ----------------------------------------------------------------------------
+Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
+
+% ----------------------------------------------------------------------------
+\subsection{Classifier Implementation} \label{implementation}
+% ----------------------------------------------------------------------------
+Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
+
+% ############################################################################
+\section{Results} \label{results}
+% ############################################################################
+Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
+
+% ----------------------------------------------------------------------------
+\subsection{Experimental Setup} \label{experiment}
+% ----------------------------------------------------------------------------
+Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
+
+% ----------------------------------------------------------------------------
+\subsection{Performance Results} \label{performance}
+% ----------------------------------------------------------------------------
+Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
+
+% ----------------------------------------------------------------------------
+\subsection{Classifier Results} \label{results}
+% ----------------------------------------------------------------------------
+Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
+
+% ############################################################################
+\section{Conclusion} \label{concl}
+% ############################################################################
+Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
+
+% ############################################################################
+\section{Discussion} \label{disc}
+% ############################################################################
+Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
+
+% ----------------------------------------------------------------------------
+\subsection{Future Work} \label{future}
+% ----------------------------------------------------------------------------
+Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
+
+% ############################################################################
+% Bibliography
+% ############################################################################
+\bibliographystyle{plain}
+\bibliography{bibliography}     %loads bibliography.bib
+
+% ============================================================================
+\end{document}
+% ============================================================================
