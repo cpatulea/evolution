@@ -70,7 +70,19 @@ Filling this with text so that I can see what the document looks like when it is
 % ############################################################################
 \section{Introduction} \label{intro}
 % ############################################################################
-Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
+Artificial neural networks (ANNs) are a class of very flexible machine learning models applicable to many classification and regression tasks. All artificial neural networks share the same basic structure but their adaptability lies in the ability to vary the network topology, activation functions at each node, and the weights between each nodes. Together, these factors allow for a very comprehensive tool capable of modeling a wide range of systems.
+
+Generally, for any given problem, the ANN designers choose a particular network structure. Then, during supervised learning, the labelled training instances are used to adjust the network parameters (edge weights and other node parameters) until some a given criteria is reached regarding classification error or training time. This can be seen as a search for a global minimum in the space of network parameters. Because the number of parameters in a typical neural network is in the tens or hundreds, the search is in a quite high-dimensional space and thus quite challenging.
+
+The ANN parameter finding problem can be viewed as an optimization problem. Simple algorithms like the first order gradient descent, second-order Gauss-Newton or hybrid Levenberg–Marquardt rely on approximations of the error function to iteratively find the global extremum. These algorithms perform well when the error landscape is relatively simple, but for ANNs with complex structures and landscapes with many local extrema, they are susceptible to getting stuck at those local extrema and sometimes do not converge nicely. Additionally, they impose certain restrictions on the node function (differentiability).
+
+Stochastic approaches to optimization provide some hope of escaping these shortcomings. One such example, simulated annealing, begins with a particular set of parameters and randomly perturbs them in the hopes of approaching an extremum. The new solution is chosen probabilistically, depending on a temperature parameter which decreases during this process. Thus, early during optimization we favor large-scale exploration of the search space while near the end we are exploring only the neighborhood of a particular local extremum (which we hope is the global extremum) to improve the precision of our solution.
+
+Genetic algorithms (GAs) are stochastic optimization algorithms which try to leverage concepts of evolution and natural selection to find the optimal solution. Similarly to simulated annealing, GAs use random perturbations to explore the search space. However, GAs additioally operate on multiple solutions at a time and attempt to combine multiple partial solutions into a new better performing candidate. At the core of GAs is the definition of a "chromosome", which represents one candidate solution, as well as an associated set of genetic operators which perform domain-specific mutations on this candidate and enable candidate mating.
+
+TODO: talk about GA resource-intensive (esp with ANN)
+TODO: talk about CUDA being good for number-crunching
+TODO: talk about CUDA performance dependent on memory access patterns
 
 % ############################################################################
 \section{Background} \label{background}
