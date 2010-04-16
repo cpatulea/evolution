@@ -1,8 +1,4 @@
 #!/usr/bin/python
-import pycuda.autoinit
-from pycuda import driver
-from pycuda import compiler
-from pycuda import tools
 from itertools import islice
 import numpy as np
 import ctypes
@@ -14,19 +10,10 @@ log = logging.getLogger("ann")
 
 class ANN(object):
   NODES_PER_LAYER = 4
-  mod = compiler.SourceModule(open("ann_kernels.cu").read())
 
   def prepare(self, trainSet, popSize):
-    """Prepare for many parallel ANN fitness calculations.
+    """Prepare for many ANN fitness calculations.
     
-                         len(trainSet[0]) x len(trainSet)
-                       <--     training instances    -->
-                       +--------+--------+--------+----+
-       network       p0|blk(0,0)|blk(1,0)|blk(2,0)| .. |
-       params        p1|blk(0,1)|blk(1,1)|   ..   | .. |
-      (popSize x     p2|blk(0,2)|   ..   |   ..   | .. |
-    sizeof(Params))    +--------+--------+--------+----+
-     
     @param trainSet: training set
     @type trainSet: input.DataSet
     @param popSize: number of networks which will be evaluated in each run
@@ -37,89 +24,15 @@ class ANN(object):
     log.debug("training set size: %d", self.trainSet.size)
     log.debug("population size: %d", self.popSize)
 
-    # Calculate block/grid size and prepare evaluate() kernel.
-    # (avoids Function.__call__ overhead)
-    maxBlockDimX = driver.Context.get_device().get_attribute(
-      driver.device_attribute.MAX_BLOCK_DIM_X
-    )
-    self.evaluateBlockDim = (maxBlockDimX, 1, 1)
-    log.debug("evaluate kernel block dim: %r", self.evaluateBlockDim)
-    
-    blockDimX = self.evaluateBlockDim[0]
-    self.evaluateGridDim = ((self.trainSet.size + blockDimX - 1) / blockDimX,
-                            self.popSize)
-    log.debug("evaluate kernel grid dim: %r", self.evaluateGridDim)
-
-    self.evaluateKernel = self.mod.get_function("evaluate")
-    self.evaluateKernel.prepare(
-      (np.intp, np.uint32, np.intp, np.uint32, np.intp),
-      block=self.evaluateBlockDim
-    )
-
-    # Calculate block/grid size and prepare nlargest() kernel.
-    self.nlargestBlockDim = (1, 1, 1)
-    log.debug("nlargest kernel block dim: %r", self.nlargestBlockDim)
-    
-    self.nlargestGridDim = (1, self.popSize)
-    log.debug("nlargest kernel grid dim: %r", self.nlargestGridDim)
-
-    self.nlargestKernel = self.mod.get_function("nlargest")
-    self.nlargestKernel.prepare(
-      (np.intp, np.uint32, np.uint32, np.uint32, np.intp, np.intp),
-      block=self.nlargestBlockDim
-    )
-    
-    # Calculate block/grid size and prepare lift() kernel.
-    self.countBlockDim = (maxBlockDimX, 1, 1)
-    log.debug("count kernel block dim: %r", self.countBlockDim)
-    
-    self.countGridDim = (1, self.popSize)
-    log.debug("count kernel grid dim: %r", self.countGridDim)
-    
-    self.countKernel = self.mod.get_function("count")
-    self.countKernel.prepare(
-      (np.intp, np.uint32, np.uint32, np.uint32, np.intp, np.intp),
-      block=self.countBlockDim
-    )
-
-    # Heap size in each pass is limited by shared memory per multiprocessor.
-    sharedBytesPerBlock = tools.DeviceData().shared_memory
-    floatBytes = np.dtype(np.float32).itemsize
-    log.debug("max shared memory per block: %d bytes (%d floats)",
-      sharedBytesPerBlock, sharedBytesPerBlock / floatBytes)
-    
-    self.maxHeapFloats = (sharedBytesPerBlock / floatBytes
-      * 99/100 # max size allocations fail on a GTX 275
-    )
-    maxHeapBytes = self.maxHeapFloats * floatBytes
-
-    log.debug("using heap size: %d bytes (%d floats)",
-      maxHeapBytes, self.maxHeapFloats)
-    self.nlargestKernel.set_shared_size(maxHeapBytes)
-
-    # Store training set in column-major order so that fetches for the same
-    # input feature across instances occur at consecutive memory addresses.
-    # (avoids "Strided Accesses", see CUDA Best Practices Guide section 3.2.1.4)
-    # TODO: Align each feature on 128-byte boundary?
-    trainSetMat = np.asmatrix(trainSet.allInstances(), np.float32)
-    assert trainSetMat.shape[1] == Parameters.ih.size / Parameters.w.size
-    self.trainSetDev = driver.to_device(
-      trainSetMat.reshape(tuple(reversed(trainSetMat.shape)), order="F")
-    )
+    # Store training set in row-major order so all features for a given
+    # instance are nearby.
+    self.trainSetMat = np.asarray(trainSet.allInstances(), np.float32)
+    assert self.trainSetMat.shape[1] == Parameters.ih.size / Parameters.w.size
 
     # Pre-allocate various large arrays
-    # TODO: mem_alloc_pitch?
-    floatBytes = np.dtype(np.float32).itemsize
-    self.params = driver.mem_alloc(
-      self.popSize * ctypes.sizeof(Parameters) * floatBytes
-    )
-    self.outputs = driver.mem_alloc(self.popSize * self.trainSet.size * floatBytes)
+    self.outputsMat = np.zeros(shape=(self.popSize, self.trainSet.size),
+                               dtype=np.float32)
     
-    uintBytes = np.dtype(np.uint32).itemsize
-    self.counts = driver.mem_alloc(
-      self.popSize * self.countBlockDim[0] * uintBytes
-    )
-
   def evaluate(self, params, returnOutputs=False):
     """Evaluate several networks (with given params) on training set.
     
@@ -134,43 +47,40 @@ class ANN(object):
       raise ValueError("Need %d Parameter structures (provided %d)" % (
         self.popSize, len(params)))
     
-    paramArrayType = Parameters * len(params)
-    driver.memcpy_htod(self.params, paramArrayType(*params))
+    for popIndex, p in enumerate(params):
+      ih = np.asarray(p.ih)
+      ih = ih.reshape((ih.shape[0], 1, ih.shape[1]))
+      c = np.asarray(p.c)
+      c = c.reshape((c.shape[0], 1, c.shape[1]))
+      w = np.asarray(p.w)
+      w = w.reshape((w.shape[0], 1))
+      ho = np.asarray(p.ho)
+      #ho = ho.reshape((1, ho.shape[0]))
+      #print "w shape:", w.shape
+      #print "ho shape:", ho.shape
+      
+      #print "trainSetMat shape:", self.trainSetMat.shape
+      #print "ih shape:", ih.shape
+      #outer = np.multiply(self.trainSetMat, ih)
+      outer = self.trainSetMat * ih
+      #print "outer shape:", outer.shape
+      #print "c shape:", c.shape
+      d = outer - c
+      d2 = (d * d).sum(axis=2)
+      #print d2
+      #print "d2 shape:", d2.shape
+      
+      h = np.exp(-w * d2)
+      #print "h shape:", h.shape
+      
+      o = np.dot(ho, h)
+      #print "o shape:", o.shape
+      self.outputsMat[popIndex] = o
 
-    # TODO: remove
-    driver.memset_d8(self.outputs, 0, self.popSize * self.trainSet.size * 4)
-    
-    self.evaluateKernel.prepared_call(self.evaluateGridDim,
-                                      self.trainSetDev,
-                                      self.trainSet.size,
-                                      self.params,
-                                      self.popSize,
-                                      self.outputs)
-
-    driver.Context.synchronize()
-
-    self.outputsMat = driver.from_device(self.outputs,
-                                         shape=(self.popSize, self.trainSet.size),
-                                         dtype=np.float32)
-    
     if returnOutputs:
       return self.outputsMat
 
-  def evaluate_cpu(self, p, inputs):
-    out = 0.0
-    
-    for j in range(ANN.NODES_PER_LAYER):
-      d2 = 0.0
-      for i in range(19):
-        d = inputs[i] * p.ih[j][i] - p.c[j][i]
-        d2 += d * d
-      
-      h = math.exp(-p.w[j] * d2)
-      out += h * p.ho[j]
-    
-    return out
-
-  def nlargest(self, n):
+  def nlargest_sort(self, n):
     """Returns the per-individual threshold above which there are n outputs.
     
     @param n: number of outputs which should be above the threshold
@@ -181,48 +91,27 @@ class ANN(object):
     """
     log.debug("enter nlargest with n=%d", n)
 
-    # Find one more output so that we can use strictly-less-than when counting
-    # and underestimate lift rather than overestimating it.
-    n = n + 1
-
-    passSizes = []
-    while n > 0:
-      nextSize = min(self.maxHeapFloats, n)
-      passSizes.append(nextSize)
-      n -= nextSize
-
-    log.debug("pass sizes: %r", passSizes)
-    
-    thresholdsMat = np.ones(shape=(self.popSize,),
-                            dtype=np.float32) * np.inf
-    self.thresholds = driver.to_device(thresholdsMat)
-
-    uintBytes = np.dtype(np.uint32).itemsize
-    thresholdCounts = np.zeros(shape=(self.popSize,),
-                               dtype=np.uint32)
-    self.thresholdCounts = driver.to_device(thresholdCounts)
-
-    for passSize in passSizes:
-      log.debug("begin pass size %d", passSize)
-      self.nlargestKernel.prepared_call(self.nlargestGridDim,
-                                        self.outputs,
-                                        self.trainSet.size,
-                                        self.popSize,
-                                        passSize,
-                                        self.thresholds,
-                                        self.thresholdCounts)
-
-      driver.Context.synchronize()
-
-      if log.isEnabledFor(logging.DEBUG):
-        thresholdsMat = driver.from_device_like(self.thresholds, thresholdsMat)
-        log.debug("thresholds: %s", str(thresholdsMat))
-        
-        thresholdCounts = driver.from_device_like(self.thresholdCounts, thresholdCounts)
-        log.debug("thresholdCounts: %s", str(thresholdCounts))
-
-    self.thresholdsMat = driver.from_device_like(self.thresholds, thresholdsMat)
+    sortedOutputs = np.sort(self.outputsMat, axis=1)
+    self.thresholdsMat = sortedOutputs[:, sortedOutputs.shape[1] - n]
     return self.thresholdsMat
+
+  def nlargest_heap(self, n):
+    import heapq
+    hr = heapq.heapreplace
+    
+    self.thresholdsMat = np.zeros(shape=(self.outputsMat.shape[0],))
+    for popIndex, popOutputs in enumerate(self.outputsMat):
+      h = [float("-inf")] * n
+      for out in popOutputs:
+        if out > h[0]:
+          hr(h, out)
+      self.thresholdsMat[popIndex] = h[0]
+
+    return self.thresholdsMat
+  
+  # Having to iterate over the data points in Python makes the heap
+  # implementation significantly (~350x) slower in practice.
+  nlargest = nlargest_sort
 
   def lift(self, n):
     """Returns (positive rate within n largest) / (overall positive rate) for
@@ -230,24 +119,10 @@ class ANN(object):
     
     @return list of counts, in order of individuals
     """
-    self.countKernel.prepared_call(self.countGridDim,
-                                   self.outputs,
-                                   self.trainSet.size,
-                                   len(self.trainSet.positives),
-                                   self.popSize,
-                                   self.thresholds,
-                                   self.counts)
-    
-    driver.Context.synchronize()
+    thresholds = self.thresholdsMat.reshape((self.thresholdsMat.shape[0], 1))
+    positives = self.outputsMat[:, 0:len(self.trainSet.positives)]
+    self.countSums = np.sum(positives > thresholds, axis=1)
 
-    countsMat = driver.from_device(self.counts,
-                                   shape=(self.popSize, self.countBlockDim[0]),
-                                   dtype=np.uint32)
-    #log.debug("counts %r: %s", countsMat.shape, str(countsMat))
-    log.debug("count sum over threads: %s", str(countsMat.sum(axis=1)))
-    
-    self.countSums = countsMat.sum(axis=1)
-    
     self.nlargestPositiveRate = np.float32(self.countSums) / n
     log.debug("positive rate (n largest outputs): %s", str(self.nlargestPositiveRate))
     
