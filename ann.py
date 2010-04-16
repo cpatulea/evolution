@@ -400,7 +400,7 @@ def main():
   logging.basicConfig(level=logging.DEBUG)
   np.set_printoptions(precision=3, edgeitems=3, threshold=20)
 
-  randSample = random.Random(input.RAND_SAMPLE)
+  randSample = random.Random(input.SAMPLE_SEED)
   
   a = ANN()
   inp = input.Input("train3.tsv", randSample)
