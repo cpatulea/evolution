@@ -2,7 +2,7 @@
 #include <math_constants.h>
 
 #define ARRAY_SIZE(array) (sizeof(array) / sizeof((array)[0]))
-#define NODES_PER_LAYER 6
+#define NODES_PER_LAYER 4
 
 struct Parameters {
   float ih[NODES_PER_LAYER][19];  // input->hidden edge weight
