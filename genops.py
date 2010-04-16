@@ -21,7 +21,7 @@ Population generation / initializer.  Uses method from Montana and Davis.
 def generatePop(generation):
     for i in range(POPSIZE):
         nextMember = Parameters()
-        for j in range(4):
+        for j in range(ANN.NODES_PER_LAYER):
             for k in range(19):
                 nextMember.ih[j][k] = getInitialFloat()
                 nextMember.c[j][k] = getInitialFloat()
@@ -39,14 +39,14 @@ Create a new generation, based on the current generation
 @type fitList: A list of float values
 @return: List of new parameters (IE, a new generation)
 """
-def generateGeneration(oldGen):
+def generateGeneration(oldGen, mutateValue):
     newGen = []
     newGen.append(oldGen[0])
     for i in range(POPSIZE - 1):
-        if random.choice([0,1]) == 1:
+        if 10*random.random() > mutateValue + 2.5:
             index = getIndex()
             newGen.append(
-                mutate(oldGen[index])
+                mutate(oldGen[index], mutateValue)
             )
         else:
             index = getIndex()
@@ -66,22 +66,22 @@ Mutation operator.  Uses MUTATE NODES operator from Montana and Davis.
 @type xman: Parameters (see class Parameters, above)
 @return Mutated Parameters object
 """
-def mutate(xman):  
+def mutate(xman, mutateValue):  
     xmanJr = Parameters()
 
-    for i in range(4):
+    for i in range(ANN.NODES_PER_LAYER):
         for j in range(19):
             xmanJr.ih[i][j] = xman.ih[i][j]
             xmanJr.c[i][j] = xman.c[i][j]
         xmanJr.w[i] = xman.w[i]
         xmanJr.ho[i] = xman.ho[i]
 
-    node = random.randint(0,3)
+    node = random.randint(0,ANN.NODES_PER_LAYER-1)
     for i in range(19):
-        xmanJr.ih[node][i] += getMutationValue()
-        xmanJr.c[node][i] += getMutationValue()
-    xmanJr.w[node] += getMutationValue()
-    xmanJr.ho[node] += getMutationValue()
+        xmanJr.ih[node][i] += getMutationValue(mutateValue)
+        xmanJr.c[node][i] += getMutationValue(mutateValue)
+    xmanJr.w[node] += getMutationValue(mutateValue)
+    xmanJr.ho[node] += getMutationValue(mutateValue)
     
     return xmanJr
 
@@ -97,7 +97,7 @@ def mate(parent1, parent2):
     parentList = [parent1, parent2]
     child = Parameters()
 
-    for i in range(4):
+    for i in range(ANN.NODES_PER_LAYER):
         for j in range(19):
             child.ih[i][j] = parentList[random.randint(0,1)].ih[i][j]
             child.c[i][j] = parentList[random.randint(0,1)].c[i][j]
@@ -113,11 +113,10 @@ Function for determining initial parameter values
 """
 def getInitialFloat():
     return random.expovariate(2)*random.choice([-1,1])
-    #return random.normalvariate(0.0, 1.0)
 
-def getMutationValue():
-    #return random.expovariate(1)*random.choice([-1,1])
-    return random.normalvariate(0.0, 0.2)
+def getMutationValue(mutateValue):
+    return random.expovariate(mutateValue)*random.choice([-1,1])
+    #return random.normalvariate(0.0, 7.0)
 
 INDEX_LAMBDA = -math.log(0.92)
 
@@ -150,7 +149,7 @@ def main():
   random.seed(5108) # used by the GA
   randSample = random.Random(input.SAMPLE_SEED) # used for data set sampling
 
-  inp = input.Input("train5-uniq.tsv", randSample)
+  inp = input.Input("train3-std.tsv", randSample)
   print "Train set:",
   inp.trainSet.show()
   
@@ -167,8 +166,9 @@ def main():
 
   params = []
   generatePop(params)
+  mutateValue = 6.0
 
-  for genIndex in range(100):
+  for genIndex in range(5000):
     print "Generation", genIndex, "starting."
     logFP("Population", params)
     outputValues = a.evaluate(params, returnOutputs=True)
@@ -191,7 +191,9 @@ def main():
 
     genplot.addGeneration(lifts, testLift, genIndex)
     
-    params = generateGeneration(sortedParams)
+    params = generateGeneration(sortedParams, mutateValue)
+    if genIndex%500 == 499:
+        mutateValue -= 0.5
 
   args = sys.argv[1:]
   if len(args) == 1:
