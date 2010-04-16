@@ -12,8 +12,58 @@ import math
 
 log = logging.getLogger("ann")
 
+class Parameters(ctypes.Structure):
+  _fields_ = [("ih", 4 * (19 * ctypes.c_float)),
+              ("c", 4 * (19 * ctypes.c_float)),
+              ("w", 4 * ctypes.c_float),
+              ("ho", 4 * ctypes.c_float)]
+
+  def _float_list_str(self, l):
+    return ", ".join("%4.01g" % el for el in l)
+
+  def __str__(self):
+    s = []
+    s.append("Parameters(\n")
+    for i in range(4):
+      ihl = list(self.ih[i])
+      s.append("  ih[%d]=[0: %s,\n" % (i, self._float_list_str(ihl[0:10])))
+      s.append("        10: %s]\n" % (self._float_list_str(ihl[10:])))
+    for i in range(4):
+      cl = list(self.c[i])
+      s.append("  c[%d] =[0: %s,\n" % (i, self._float_list_str(cl[0:10])))
+      s.append("        10: %s]\n" % (self._float_list_str(cl[10:])))
+    s.append("  w =%s,\n" % self._float_list_str(list(self.w)))
+    s.append("  ho=%s,\n" % self._float_list_str(list(self.ho)))
+    s.append(")")
+    return "".join(s)
+
+  def _array_repr(self, dims, value):
+    if dims == []:
+      return "%e" % value
+
+    typestr = "ctypes.c_float"
+    for dim in reversed(dims):
+      typestr = "(%d*%s)" % (dim, typestr)
+    
+    valuestr = typestr + "(" + ", ".join(self._array_repr(dims[1:], subvalue) for subvalue in value) + ")"
+    return valuestr
+
+  def __repr__(self):
+    r = ["Parameters(\n"]
+    r.append("  ih=%s,\n" % self._array_repr([4, 19], self.ih))
+    r.append("  c=%s,\n" % self._array_repr([4, 19], self.c))
+    r.append("  w=%s,\n" % self._array_repr([4], self.w))
+    r.append("  ho=%s\n" % self._array_repr([4], self.ho))
+    r.append(")")
+    return "".join(r)
+
+  @staticmethod
+  def from_file(annfile):
+    return eval(compile(open(annfile).read(), annfile, "eval"),
+                {"Parameters": Parameters,
+                 "ctypes": ctypes})
+
 class ANN(object):
-  NODES_PER_LAYER = 4
   mod = compiler.SourceModule(open("ann_kernels.cu").read())
 
   def prepare(self, trainSet, popSize):
@@ -159,7 +209,7 @@ class ANN(object):
   def evaluate_cpu(self, p, inputs):
     out = 0.0
     
-    for j in range(ANN.NODES_PER_LAYER):
+    for j in range(4):
       d2 = 0.0
       for i in range(19):
         d = inputs[i] * p.ih[j][i] - p.c[j][i]
@@ -278,64 +328,13 @@ class ANN(object):
     
     return lifts
 
-class Parameters(ctypes.Structure):
-  _fields_ = [("ih", ANN.NODES_PER_LAYER * (19 * ctypes.c_float)),
-              ("c", ANN.NODES_PER_LAYER * (19 * ctypes.c_float)),
-              ("w", ANN.NODES_PER_LAYER * ctypes.c_float),
-              ("ho", ANN.NODES_PER_LAYER * ctypes.c_float)]
-
-  def _float_list_str(self, l):
-    return ", ".join("%401g" % el for el in l)
-
-  def __str__(self):
-    s = []
-    s.append("Parameters(\n")
-    for i in range(ANN.NODES_PER_LAYER):
-      ihl = list(self.ih[i])
-      s.append("  ih[%d]=[0: %s,\n" % (i, self._float_list_str(ihl[0:10])))
-      s.append("        10: %s]\n" % (self._float_list_str(ihl[10:])))
-    for i in range(ANN.NODES_PER_LAYER):
-      cl = list(self.c[i])
-      s.append("  c[%d] =[0: %s,\n" % (i, self._float_list_str(cl[0:10])))
-      s.append("        10: %s]\n" % (self._float_list_str(cl[10:])))
-    s.append("  w =%s,\n" % self._float_list_str(list(self.w)))
-    s.append("  ho=%s,\n" % self._float_list_str(list(self.ho)))
-    s.append(")")
-    return "".join(s)
-
-  def _array_repr(self, dims, value):
-    if dims == []:
-      return "%e" % value
-
-    typestr = "ctypes.c_float"
-    for dim in reversed(dims):
-      typestr = "(%d*%s)" % (dim, typestr)
-    
-    valuestr = typestr + "(" + ", ".join(self._array_repr(dims[1:], subvalue) for subvalue in value) + ")"
-    return valuestr
-
-  def __repr__(self):
-    r = ["Parameters(\n"]
-    r.append("  ih=%s,\n" % self._array_repr([ANN.NODES_PER_LAYER, 19], self.ih))
-    r.append("  c=%s,\n" % self._array_repr([ANN.NODES_PER_LAYER, 19], self.c))
-    r.append("  w=%s,\n" % self._array_repr([ANN.NODES_PER_LAYER], self.w))
-    r.append("  ho=%s\n" % self._array_repr([ANN.NODES_PER_LAYER], self.ho))
-    r.append(")")
-    return "".join(r)
-
-  @staticmethod
-  def from_file(annfile):
-    return eval(compile(open(annfile).read(), annfile, "eval"),
-                {"Parameters": Parameters,
-                 "ctypes": ctypes})
-
 def linterp(a, b, p):
   return a + (b - a) * p
 
 def forceOnlyFeatures(params, featList):
   for p in params:
     # we want only feature 0 and the class
-    for i in range(ANN.NODES_PER_LAYER):
+    for i in range(4):
       for j in range(19):
         if j not in featList:
           p.ih[i][j] = 0
@@ -400,7 +399,7 @@ def main():
   logging.basicConfig(level=logging.DEBUG)
   np.set_printoptions(precision=3, edgeitems=3, threshold=20)
 
-  randSample = random.Random(input.RAND_SAMPLE)
+  randSample = random.Random(input.SAMPLE_SEED)
   
   a = ANN()
   inp = input.Input("train3.tsv", randSample)
@@ -422,12 +421,12 @@ def main():
     p.ih[0][0] = 1.0
     p.ih[1][11] = 1.0
 
-    p.w[0] = -1e-4
+    p.w[0] = -1e-0
     p.w[1] = -1.0 / (10.0 ** linterp(0, 4, float(paramsIndex) / popSize))
     p.w[2] = p.w[3] = 0.0
 
     p.ho[0] = 1.0
-    p.ho[1] = -1.0
+    p.ho[1] = 0.0 #-1.0
     p.ho[2] = p.ho[3] = 0.0
 
     params.append(p)

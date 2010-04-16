@@ -2,13 +2,12 @@
 #include <math_constants.h>
 
 #define ARRAY_SIZE(array) (sizeof(array) / sizeof((array)[0]))
-#define NODES_PER_LAYER 6
 
 struct Parameters {
-  float ih[NODES_PER_LAYER][19];  // input->hidden edge weight
-  float c[NODES_PER_LAYER][19];   // RBF center
-  float w[NODES_PER_LAYER];       // RBF width
-  float ho[NODES_PER_LAYER];      // hidden->output edge weight
+  float ih[4][19];  // input->hidden edge weight
+  float c[4][19];   // RBF center
+  float w[4];       // RBF width
+  float ho[4];      // hidden->output edge weight
 };
 
 __global__ void evaluate(
@@ -36,7 +35,7 @@ __global__ void evaluate(
     float output = 0.f;
     
     // TODO: Make sure this gets unrolled
-    for (int j = 0; j < NODES_PER_LAYER; j++) {
+    for (int j = 0; j < 4; j++) {
       float d2 = 0.f; // input to hidden node j
       for (int i = 0; i < 19; i++) {
         const float d = inputs[i] * p->ih[j][i] - p->c[j][i];

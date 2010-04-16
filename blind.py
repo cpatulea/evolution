@@ -21,9 +21,10 @@ def main(annfile):
   for rank0, (index, output) in enumerate(sortedOutputs):
     indexToRank[index] = rank0 + 1
 
-  for index, output in enumerate(outputs):
+  originalBlindSet = open("test.tsv")
+  for index, (row, output) in enumerate(zip(originalBlindSet, outputs)):
     rank = indexToRank[index]
-    print index, output, rank
+    print "%s\t%d" % (row.strip(), rank)
 
 if __name__ == "__main__":
   if len(sys.argv) != 2:
