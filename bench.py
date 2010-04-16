@@ -11,9 +11,9 @@ def timefun(fun, *args, **kwargs):
 
   deltas = []
   for _ in range(repeat):
-    start = time.clock()
+    start = time.time()
     ret = fun(*args)
-    end = time.clock()
+    end = time.time()
     deltas.append(end - start)
   
   avg = sum(deltas)/len(deltas)
