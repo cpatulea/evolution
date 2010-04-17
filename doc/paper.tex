@@ -94,15 +94,27 @@ GA training of ANNs is very computationally-intensive. For each generation ($10^
 % ----------------------------------------------------------------------------
 NVidia's Compute Unified Device Architecture (CUDA) is a programming paradigm for massively parallel processors present in off-the-shelf graphics cards (GPUs). GPUs consist of many independent floating-point computation units, providing significant speedup to data-parallel compute-intensive applications. Each unit is connected to on-board memory using a very wide bus, enabling very high memory bandwidth provided certain particular memory access patterns are respected. The combination of these features makes CUDA an ideal platform for GA-ANN training.
 
+The computational unit in CUDA is the "kernel", which is a C function executed in parallel on the grid of available compute units in the CUDA device. The function can request its position in this grid such that it can apply the same algorithm to values at different addresses in memory. In addition, if groups of kernels access sequential addresses in memory, the memory fetches are done in parallel, maximizing bus bandwidth utilization. This is referred to as coalesing.
+
+The CUDA programming model defines global and shared memory. Global memory is on-board but off-chip, expensive for random access and plentiful (100s of MB). Shared memory is on-chip, very fast for random access but very limited (16 KB).
+
 % ----------------------------------------------------------------------------
 \subsection{Data Mining Contest} \label{contest}
 % ----------------------------------------------------------------------------
-The data for our classifier was provided by the 2009 UC San Diego Data Mining Contest "E-commerce Transaction Anomaly Classification" and consist of 94682 instances of 19 features with a 1:50 class imbalance. The evaluation metric was "lift at 20\%", which can be understood as the ratio of the true positive rate in the top 20\% of instances ranked by the classifier to the overall positive rate of the original data set. This metric was directly used as the fitness of each classifier being evaluated by the GA.
+The data for our classifier was provided by the 2009 UC San Diego Data Mining Contest "E-commerce Transaction Anomaly Classification" and consist of 94682 instances of 19 features with a 1:50 class imbalance. The evaluation metric was "lift at 20\%", which can be understood as the ratio of the true positive rate in the top 20\% of instances ranked by the classifier to the overall positive rate of the original data set. This metric was directly used as the fitness of each classifier being evaluated by the GA. ANN outputs are treated as confidence values and used for ranking.
 
 % ############################################################################
 \section{Methods} \label{algimp}
 % ############################################################################
-Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
+The training process can be divided in several parts which are repeated for each generation until sufficient classifier performance is obtained.
+\begin{enumerate}
+	\item Genetic algorithm processing -- initialization, mating, mutation, selection
+	\item Computation of ANN outputs
+	\item Calculation of top 20\% threshold value (each individual)
+	\item Counting of the positive instances with outputs above this threshold (each individual)
+\end{enumerate}
+
+Item 1 is not very computationally intensive and was not parallelized. Items 2, 3 and 4 were all implemented on the CUDA platform. Performance results are given for the combined execution time of these three items.
 
 % ----------------------------------------------------------------------------
 \subsection{Preliminary Data Analysis} \label{prelim}
@@ -123,6 +135,16 @@ Filling this with text so that I can see what the document looks like when it is
 \subsection{Classifier Implementation} \label{implementation}
 % ----------------------------------------------------------------------------
 Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
+
+% ----------------------------------------------------------------------------
+\subsection{Calculation of Top 20\% Threshold} \label{implementation}
+% ----------------------------------------------------------------------------
+To efficiently calculate the top 20\% threshold in a list of $n$ ANN output values, we can insert all values into a $k$-sized minheap where $k = 0.20 * n$, and take the root of the heap as the threshold. Each minheap insertion costs $O(\log k)$ time. Because device shared memory (16~KB) is not large enough for our value of $k$, we use $p$ passes of $\frac{k}{p}$-sized heaps with which we find the top 5\% threshold, then the top 10\%, etc. The overall complexity of our algorithm is $O(np \log \frac{k}{p})$. Parallelization is across individuals.
+
+% ----------------------------------------------------------------------------
+\subsection{Counting of Positives Above Threshold} \label{implementation}
+% ----------------------------------------------------------------------------
+By keeping positive instances first in our training set, we avoid the need to consult the class of each instance (saving a costly global memory read). We simply iterate over the first $numPositives$ ANN outputs and count the outputs over the individual's 20\% threshold. Parallelization is across both individuals and groups of outputs. For each individual, we keep m counters which accumulate counts for indexes $i$ where $i \equiv 0 \bmod{m}$, $i \equiv 1 \bmod{m}$, ..., $i \equiv m - 1 \bmod{m}$. This enables parallelization even when there are not enough individuals in the population to fully occupy the device. Each batch of $m$ kernels accesses $m$ sequential locations in memory, which results in coalesced reads.
 
 % ############################################################################
 \section{Results} \label{results}
