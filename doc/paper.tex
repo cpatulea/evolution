@@ -64,45 +64,41 @@ Ottawa, Canada K1S 5B6\\
 % Abstract
 % ############################################################################
 \begin{abstract}
-Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
+We present an implementation of genetic algorithm (GA) training of artificial neural networks (ANNs) targeting commodity graphics cards (GPUs). By carefully mapping the problem onto the unique GPU architecture, we achieve order-of-magnitude speedup over a conventional CPU implementation. Furthermore, we show that the speedup is consistent across a wide range of population and training set sizes. This performance boost enables classifier design to span a wider range of population sizes and number of generations affording better classifiers and improved understanding of long-term trends in genetic algorithm convergence. Finally, we apply this method to the design of a classifier for the 2009 UC San Diego Data Mining Contest.
 \end{abstract}
 
 % ############################################################################
 \section{Introduction} \label{intro}
 % ############################################################################
-Artificial neural networks (ANNs) are a class of very flexible machine learning models applicable to many classification and regression tasks. All artificial neural networks share the same basic structure but their adaptability lies in the ability to vary the network topology, activation functions at each node, and the weights between each nodes. Together, these factors allow for a very comprehensive tool capable of modeling a wide range of systems.
-
-Generally, for any given problem, the ANN designers choose a particular network structure. Then, during supervised learning, the labelled training instances are used to adjust the network parameters (edge weights and other node parameters) until some a given criteria is reached regarding classification error or training time. This can be seen as a search for a global minimum in the space of network parameters. Because the number of parameters in a typical neural network is in the tens or hundreds, the search is in a quite high-dimensional space and thus quite challenging.
-
-The ANN parameter finding problem can be viewed as an optimization problem. Simple algorithms like the first order gradient descent, second-order Gauss-Newton or hybrid Levenberg–Marquardt rely on approximations of the error function to iteratively find the global extremum. These algorithms perform well when the error landscape is relatively simple, but for ANNs with complex structures and landscapes with many local extrema, they are susceptible to getting stuck at those local extrema and sometimes do not converge nicely. Additionally, they impose certain restrictions on the node function (differentiability).
-
-Stochastic approaches to optimization provide some hope of escaping these shortcomings. One such example, simulated annealing, begins with a particular set of parameters and randomly perturbs them in the hopes of approaching an extremum. The new solution is chosen probabilistically, depending on a temperature parameter which decreases during this process. Thus, early during optimization we favor large-scale exploration of the search space while near the end we are exploring only the neighborhood of a particular local extremum (which we hope is the global extremum) to improve the precision of our solution.
-
-Genetic algorithms (GAs) are stochastic optimization algorithms which try to leverage concepts of evolution and natural selection to find the optimal solution. Similarly to simulated annealing, GAs use random perturbations to explore the search space. However, GAs additioally operate on multiple solutions at a time and attempt to combine multiple partial solutions into a new better performing candidate. At the core of GAs is the definition of a "chromosome", which represents one candidate solution, as well as an associated set of genetic operators which perform domain-specific mutations on this candidate and enable candidate mating.
-
-TODO: talk about GA resource-intensive (esp with ANN)
-TODO: talk about CUDA being good for number-crunching
-TODO: talk about CUDA performance dependent on memory access patterns
 
 % ############################################################################
 \section{Background} \label{background}
 % ############################################################################
-Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
 
 % ----------------------------------------------------------------------------
 \subsection{Artificial Neural Networks} \label{ann}
 % ----------------------------------------------------------------------------
-Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
+Artificial neural networks (ANNs) are very flexible classifiers. By varying the network structure and parameters thereof, they can represent many aspects of the function to be approximated, including nonlinearities and high-order terms. However, the complexity of these classifiers implies that finding optimal parameters coincides with a search in a very high-dimensional parametric space. This is known as an optimization problem, for which a wide variety of solutions are known.
+
+Greedy approaches to ANN training include gradient descent, Gauss-Newton and Levenberg–Marquardt, which are first order, second order and hybrid methods, respectively. These methods seek extrema using the local behaviour of the error function and are thus susceptible to getting stuck at local extrema rather than finding the global extremum.
+
+Stochastic approaches offer the promise of "eventually" reaching the global extremum by asymptotically exploring the entire search space. Simulated annealing, for example, iteratively generates candidate solutions by randomly perturbing the previous solution. Early in the process, we inject a high amount of randomness to find global trends in the error function, while later in the process we inject less randomness to find the apex of the (hopefully) global extremum.
 
 % ----------------------------------------------------------------------------
 \subsection{Genetic Algorithms} \label{ga}
 % ----------------------------------------------------------------------------
-Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
+Genetic algorithms (GAs) rely on multiple candidate solutions to simultaneously explore the search space. The "individuals" are randomly mutated, mated and selected during each of several generations. Mutation and mating is done using problem-specific representation of candidate solutions and "genetic operators", while selection is governed by a fitness function (classifier performance). The competitive bias imposed by selection attempts to mimic the "survival of the fittest" principle so often seen in Nature.
+
+GA training of ANNs is very computationally-intensive. For each generation ($10^1$--$10^2$) individuals), the fitness of each individual is calculated by applying each neural network to the entire training set ($10^2$--$10^6$ instances) and taking the classification accuracy for that network. Each ANN evaluation itself requires a large number of multiplications (which increases with the number of features and hidden nodes) in addition to evaluation of transcendentals for the most commonly-used node activation function. Thus, a CPU implementation of GA training of ANNs for any but the smallest networks and training sets is infeasible.
 
 % ----------------------------------------------------------------------------
 \subsection{The CUDA Platform} \label{cuda}
 % ----------------------------------------------------------------------------
-Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
+
+Compute Unified Device Architecture (CUDA) is a platform which enables the use of NVIDIA graphics cards (GPUs) for general purpose programming, including scientific computations. GPUs have recently become quite affordable to the point that some new notebook computers now include built-in GPUs. Because of the nature of graphics processing, these are massively parallel processors optimized for memory bandwidth and floating-point computation. This is a very good match for our GA-ANN training problem.
+
+The CUDA programming model is designed to allow algorithms to scale with the GPU's parallelism parameters. This allows the same algorithm to run on different present-day hardware as well as future hardware, with minimal changes. However, to accomplish this, the programming model is different in many ways from the conventional CPU programming. In particular, to best leverage GPU hardware, CUDA code must be carefully written to balance mathematical operations with memory accesses and to have certain specific optimal memory access patterns. These are both well-known problems in high performance computing, but they are further exacerbated by the design of the CUDA architecture.
+
 
 % ############################################################################
 \section{Methods} \label{algimp}
