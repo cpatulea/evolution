@@ -137,12 +137,31 @@ Filling this with text so that I can see what the document looks like when it is
 % ----------------------------------------------------------------------------
 \subsection{Experimental Setup} \label{experiment}
 % ----------------------------------------------------------------------------
-Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
+To evaluate the performance of our system, we compared execution time of equivalent algorithms running on commodity desktop CPUs and GPUs. Each series represents one type of experimental hardware (Table~\ref{tab:experimental-hardware}). Each data point is an average over 10 runs of the algorithm with the same parameters.
+
+\begin{table}
+	\centering
+	\begin{tabular}{ll}
+	\textbf{Legend Label} & \textbf{Hardware} \\
+	\hline
+	Core2 & Intel Core 2 Q9450 CPU at 2.66 GHz \\
+	GTX275 & NVidia GTX275 GPU \\
+	\hline
+	\end{tabular}
+	\caption{Experimental hardware}
+	\label{tab:experimental-hardware}
+\end{table}
 
 % ----------------------------------------------------------------------------
 \subsection{Performance Results} \label{performance}
 % ----------------------------------------------------------------------------
-Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
+In most cases, the GPU implementation resulted in approximately an order of magnitude speedup over a CPU implementation (Figure~\ref{fig:training-performance}). For low population sizes, GPU initialization and data copying dominates.
+
+\begin{figure}
+	\includegraphics[width=\textwidth]{fig-performance}
+	\caption{Training performance as a function of population size (left) and training set size (right). Note logarithmic axes.}
+	\label{fig:training-performance}
+\end{figure}
 
 % ----------------------------------------------------------------------------
 \subsection{Classifier Results} \label{results}
