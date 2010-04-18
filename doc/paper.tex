@@ -105,15 +105,6 @@ Our demonstration classifier is designed for the 2009 UC San Diego Data Mining C
 % ############################################################################
 \section{Methods} \label{algimp}
 % ############################################################################
-Each GA iteration consists of the following steps:
-\begin{enumerate}
-	\item Computation of ANN outputs
-	\item Calculation of top 20\% threshold value (each individual)
-	\item Counting of the positive instances with outputs above this threshold (each individual)
-	\item Genetic algorithm processing -- mating, mutation, selection
-\end{enumerate}
-
-Items 1, 2 and 3 were all implemented on the CUDA platform. Performance results are given as the combined time for one generation of these last three items but exclude one-time initialization. Item 4 is not very computationally intensive and was not parallelized. 
 
 % ----------------------------------------------------------------------------
 \subsection{Preliminary Data Analysis} \label{prelim}
@@ -139,6 +130,15 @@ Preliminary analysis of test data has shown that a projection of the data onto a
 % ----------------------------------------------------------------------------
 \subsection{Classifier Implementation} \label{implementation}
 % ----------------------------------------------------------------------------
+Each GA iteration consists of the following steps:
+\begin{enumerate}
+	\item Computation of ANN outputs
+	\item Calculation of top 20\% threshold value (each individual)
+	\item Counting of the positive instances with outputs above this threshold (each individual)
+	\item Genetic algorithm processing -- mating, mutation, selection
+\end{enumerate}
+
+Items 1, 2 and 3 were all implemented on the CUDA platform. Performance results are given as the combined time for one generation of these last three items but exclude one-time initialization. Item 4 is not very computationally intensive and was not parallelized. 
 
 % ----------------------------------------------------------------------------
 \subsection{Computation of ANN Output Values} \label{implementation}
@@ -170,7 +170,9 @@ To evaluate the performance of our system, we compared execution time of equival
 	\begin{tabular}{ll}
 	\textbf{Legend Label} & \textbf{Hardware} \\
 	\hline
-	Core2 & Intel Core 2 Q9450 CPU at 2.66 GHz \\
+	Core2 & Intel Core 2 Q9450 CPU \\
+	i7 & Intel i7 920 CPU \\
+	GTX260 & NVidia GTX260 GPU \\
 	GTX275 & NVidia GTX275 GPU \\
 	\hline
 	\end{tabular}
