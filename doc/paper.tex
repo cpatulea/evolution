@@ -109,11 +109,12 @@ Our demonstration classifier is designed for the 2009 UC San Diego Data Mining C
 % ----------------------------------------------------------------------------
 \subsection{Preliminary Data Analysis} \label{prelim}
 % ----------------------------------------------------------------------------
+Fisher's linear discriminant \cite[\S 3.8.2]{Duda} obtains the 1D projection with best class separation by taking the eigenvector with the highest eigenvalue in a generalized eigenvector problem. We instead took the eigenvectors with the \emph{two} highest eigenvalues and plotted a 2D projection. This showed four defined clusters, which guided our choice of 4 hidden nodes with Gaussian radial basis functions.
 
 % ----------------------------------------------------------------------------
 \subsection{Data Preprocessing Steps} \label{preprocessing}
 % ----------------------------------------------------------------------------
-We have implemented an algorithm which, given a tab seperated values file, converts nominal feature values in the file into numeric values.  The algorithm replaces each nominal value in the file with the logarithm of the probability ratio between the positive and negative values observed given the nominal value.  As a result, meaningful numeric values can be extracted from arbitrary nominal values without domain knowledge relating to the values. This improves on the ortogonal coding method \cite[slide 17]{MLP-NominalCoding} by avoiding allocation of a disproportionate number of input nodes to nominal features.
+We have implemented an algorithm which, given a tab seperated values file, converts nominal feature values in the file into numeric values.  The algorithm replaces each nominal value in the file with the logarithm of the probability ratio between the positive and negative values observed given the nominal value.  As a result, meaningful numeric values can be extracted from arbitrary nominal values without domain knowledge relating to the values. This improves on the traditional ortogonal coding method \cite[slide 17]{MLP-NominalCoding} by avoiding allocation of a disproportionate number of input nodes to nominal features.
 
 % ----------------------------------------------------------------------------
 \subsection{Classifier Design} \label{design}
@@ -121,11 +122,6 @@ We have implemented an algorithm which, given a tab seperated values file, conve
 In order to adapt to varying data sets, we have developped a flexible ANN model, allowing for an arbitrary number of hidden layers and nodes per layer (within the limits of GPU memory). All hidden layers must contain the same number of nodes, however input and output weights may be adjusted through the genetic algorithm so as to effectively reduce the number of nodes on a specific layer.
 
 The genetic mutation and crossover operations which we have implemented are based on the methods defined by Montana and Lawrence \cite{GA-ANN}. Of the operations presented in this paper, the MUTATE NODES and CROSSOVER WEIGHTS operations were determined to provide an optimal balance between performance and classifier accuracy, and have been implemented in our experiments.
-
-Preliminary analysis of test data has shown that a projection of the data onto a 2D space which maximize class separation produces four distinct eliptical regions.  Therefore, test results have been obtained using an ANN which contains one layer of four radial basis function nodes.
-
-% Where does this fit?
-%  ANN outputs are treated as confidence values and used for ranking, and the lift of a classifier was directly used as the its fitness value for the GA.
 
 % ----------------------------------------------------------------------------
 \subsection{Classifier Implementation} \label{implementation}
@@ -138,29 +134,30 @@ Each GA iteration consists of the following steps:
 	\item Genetic algorithm processing -- mating, mutation, selection
 \end{enumerate}
 
-Items 1, 2 and 3 were all implemented on the CUDA platform. Performance results are given as the combined time for one generation of these last three items but exclude one-time initialization. Item 4 is not very computationally intensive and was not parallelized. 
+Items 1, 2 and 3 were all implemented on the CUDA platform. Performance results are given as the combined time for one generation of these three items but exclude one-time initialization. Item 4 is not very computationally intensive and was not parallelized. 
 
 % ----------------------------------------------------------------------------
 \subsection{Computation of ANN Output Values} \label{implementation}
 % ----------------------------------------------------------------------------
-ANN output values are computed by reading feature values and applying the appropriate operations represented by the network topology and parameters. Feature data are organized to enable memory read coalescing. This part of the process is particularly well-suited to the CUDA architecture because it has a very high ratio of mathematical operations to memory accesses (160 multiplications, 4 exponentiations and 80 bytes of memory accesses for our ANN topology).
+ANN output values are computed by reading feature values and applying the appropriate operations represented by the network topology and parameters. Feature data are organized to enable memory read coalescing. This part of the process is particularly well-suited to the CUDA architecture because it has a very high ratio of mathematical operations to memory accesses (160 multiplications, 4 exponentiations and 80 bytes of memory accesses for our ANN topology). Parallelization is across individuals as well as training instances, which allows this part of the process to scale particularly well with hardware capabilities.
 
 % ----------------------------------------------------------------------------
 \subsection{Calculation of Top 20\% Threshold} \label{implementation}
 % ----------------------------------------------------------------------------
-To efficiently calculate the top 20\% threshold in a list of $n$ ANN output values, we can insert all values into a $k$-sized minheap where $k = 0.20 * n$, and take the root of the heap as the threshold. Each minheap insertion costs $O(\log k)$ time. Because device shared memory (16~KB) is not large enough for our value of $k$, we instead use $p$ passes of $\frac{k}{p}$-sized heaps with which we find the top 5\% threshold, then the top 10\%, etc. The overall complexity of our algorithm is $O(np \log \frac{k}{p})$. Parallelization is across individuals.
+To efficiently calculate the top 20\% threshold in a list of $n$ unsorted ANN output values, we can insert all values into a $k$-sized binary minheap where $k = 0.20 * n$, and take the root of the heap as the threshold. Each minheap insertion costs $O(\log k)$ time. Because device shared memory (16~KB) is not large enough for our value of $k$, we instead use $p$ passes of $\frac{k}{p}$-sized heaps with which we find the top 5\% threshold, then the top 10\%, etc. The overall complexity of our algorithm is $O(np \log \frac{k}{p})$. Parallelization is across individuals.
 
 % ----------------------------------------------------------------------------
 \subsection{Counting of Positives Above Threshold} \label{implementation}
 % ----------------------------------------------------------------------------
-By keeping positive instances first in our training set, we avoid the need to consult the class of each instance (saving a costly global memory read). We simply iterate over the first $numPositives$ ANN outputs and count the outputs over the individual's 20\% threshold. Parallelization is across both individuals and groups of outputs. For each individual, we keep m counters which accumulate counts for indexes $i$ where $i \equiv 0 \bmod{m}$, $i \equiv 1 \bmod{m}$, ..., $i \equiv m - 1 \bmod{m}$. This enables parallelization even when there are not enough individuals in the population to fully occupy the device. Each batch of $m$ kernels accesses $m$ sequential locations in memory, which results in coalesced reads.
+By keeping positive instances first in our training set, we avoid the need to consult the class of each instance (global memory reads are costly). We simply iterate over the first $numPositives$ ANN outputs and count the outputs that are greater than the individual's 20\% threshold. Parallelization is across both individuals and groups of outputs. For each individual, we keep m counters which accumulate counts for output indices $i$ where $i \equiv 0 \bmod{m}$, $i \equiv 1 \bmod{m}$, ..., $i \equiv m - 1 \bmod{m}$. This enables parallelization even when there are not enough individuals in the population to fully occupy the device. Each batch of $m$ kernels accesses $m$ sequential locations in memory, which results in coalesced reads.
 
 % ############################################################################
 \section{Results} \label{results}
 % ############################################################################
+We first present the computational performance of our algorithm for classifier training, followed by the estimated classification performance of the classifier designed for the UC San Diego data mining contest.
 
 % ----------------------------------------------------------------------------
-\subsection{Experimental Setup} \label{experiment}
+\subsection{Training Performance} \label{performance}
 % ----------------------------------------------------------------------------
 To evaluate the performance of our system, we compared execution time of equivalent algorithms running on commodity desktop CPUs and GPUs. Each series represents one type of experimental hardware (Table~\ref{tab:experimental-hardware}). Each data point is an average over 10 runs of the algorithm with the same parameters.
 
@@ -179,9 +176,6 @@ To evaluate the performance of our system, we compared execution time of equival
 	\label{tab:experimental-hardware}
 \end{table}
 
-% ----------------------------------------------------------------------------
-\subsection{Performance Results} \label{performance}
-% ----------------------------------------------------------------------------
 In most cases, the GPU implementation resulted in approximately an order of magnitude speedup over a CPU implementation (Figure~\ref{fig:training-performance}). For low population sizes, GPU initialization and data copying dominates.
 
 \begin{figure}[h]
@@ -191,7 +185,7 @@ In most cases, the GPU implementation resulted in approximately an order of magn
 \end{figure}
 
 % ----------------------------------------------------------------------------
-\subsection{Classifier Results} \label{results}
+\subsection{Classification Performance} \label{results}
 % ----------------------------------------------------------------------------
 The classifier was trained over 12000 generations with a final estimated lift of 4.51 (Figure~\ref{fig:evolution-lift}) out of a maximum lift of 5.
 
@@ -205,7 +199,7 @@ The classifier was trained over 12000 generations with a final estimated lift of
 % ############################################################################
 \section{Conclusion} \label{concl}
 % ############################################################################
-We have presented an implementation of GA training of ANN classifiers for the CUDA platform for GPU programming. By carefully designing memory organization, algorithm computational load and memory access patterns, we have obtained a 10-fold speedup compared to a conventional sequential CPU implementation. Additional workaround were necessary for the low amount of fast on-chip GPU memory. Our method scales across population and training set sizes.
+We have presented an implementation of GA training of ANN classifiers for the CUDA platform for GPU programming. By carefully designing memory organization, algorithm computational load and memory access patterns, we have obtained a 10-fold speedup compared to a conventional sequential CPU implementation. Additional workarounds were necessary for the low amount of fast on-chip GPU memory. Our method scales across population and training set sizes.
 
 % ############################################################################
 \section{Discussion} \label{disc}
@@ -215,6 +209,7 @@ We have presented an implementation of GA training of ANN classifiers for the CU
 \subsection{Future Work} \label{future}
 % ----------------------------------------------------------------------------
 Montana and Lawrence \cite{GA-ANN} have demonstrated that a brief period of hill climbing after training with a genetic algorithm may increase the accuracy of classifier results. Thus, we could improve the accuracy of our methods by incorporating hill-climbing methods, such as the parallel backpropagation method described by Oei, Friedland and Janin \cite{backprop}.
+
 
 % ############################################################################
 % Bibliography
