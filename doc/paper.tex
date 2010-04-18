@@ -93,14 +93,14 @@ The computation required for GA training of ANNs is proportional to the number o
 % ----------------------------------------------------------------------------
 NVidia's Compute Unified Device Architecture (CUDA) is a programming platform for massively parallel GPUs found in off-the-shelf graphics cards. GPUs consist of many independent floating-point units, providing significant speedup to data-parallel compute-intensive applications. Each unit is connected to on-board memory using a very wide bus, enabling high memory bandwidth provided certain particular memory access rules are respected. The combination of these features makes CUDA an ideal platform for GA-ANN training.
 
-The CUDA programming model defines global and shared memory. Global memory is on-board but off-chip, expensive for random access and plentiful (100s of MB). Shared memory is on-chip, very fast for random access but very limited (16 KB).
+The CUDA programming model defines global and shared memory \cite[\S3.2]{CudaProgGuide3.0}. Global memory is on-board but off-chip, expensive for random access and plentiful (100s of MB). Shared memory is on-chip, very fast for random access but very limited (16 KB).
 
-The computational unit in CUDA is the "kernel", which is a C function executed in parallel on the grid of available compute units in the CUDA device. The function is aware of its position in this grid such that it can apply the same algorithm to data at different addresses in memory. In addition, if groups of kernels access sequential addresses in global memory, the memory fetches are combined into a single transaction, maximizing bus bandwidth utilization. This is referred to as memory access coalescing.
+The computational unit in CUDA is the "kernel", which is a C function executed in parallel on the grid of available compute units in the CUDA device. The function is aware of its position in this grid such that it can apply the same algorithm to data at different addresses in memory. In addition, if groups of kernels access sequential addresses in global memory, the memory fetches are combined into a single transaction, maximizing bus bandwidth utilization. This is referred to as memory access coalescing \cite[\S5.3.2.1]{CudaProgGuide3.0}.
 
 % ----------------------------------------------------------------------------
 \subsection{Data Mining Contest} \label{contest}
 % ----------------------------------------------------------------------------
-Our demonstration classifier is designed for the 2009 UC San Diego Data Mining Contest "E-commerce Transaction Anomaly Classification" and with training data thereof. The training data consist of 94682 instances of 19 mixed features with a 1:50 binary class imbalance. The evaluation metric is "lift at 20\%", which can be understood as the ratio of the true positive rate in the top 20\% ranked instances to the overall positive rate of the data set.
+Our demonstration classifier is designed for the 2009 UC San Diego Data Mining Contest "E-commerce Transaction Anomaly Classification" \cite{UCSG-Contest} and with training data thereof. The training data consist of 94682 instances of 19 mixed features with a 1:50 binary class imbalance. The evaluation metric is "lift at 20\%", which can be understood as the ratio of the true positive rate in the top 20\% ranked instances to the overall positive rate of the data set.
 
 % ############################################################################
 \section{Methods} \label{algimp}
