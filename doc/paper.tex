@@ -165,7 +165,7 @@ Filling this with text so that I can see what the document looks like when it is
 % ----------------------------------------------------------------------------
 To evaluate the performance of our system, we compared execution time of equivalent algorithms running on commodity desktop CPUs and GPUs. Each series represents one type of experimental hardware (Table~\ref{tab:experimental-hardware}). Each data point is an average over 10 runs of the algorithm with the same parameters.
 
-\begin{table}
+\begin{table}[h]
 	\centering
 	\begin{tabular}{ll}
 	\textbf{Legend Label} & \textbf{Hardware} \\
@@ -185,7 +185,7 @@ To evaluate the performance of our system, we compared execution time of equival
 % ----------------------------------------------------------------------------
 In most cases, the GPU implementation resulted in approximately an order of magnitude speedup over a CPU implementation (Figure~\ref{fig:training-performance}). For low population sizes, GPU initialization and data copying dominates.
 
-\begin{figure}
+\begin{figure}[h]
 	\includegraphics[width=\textwidth]{fig-performance}
 	\caption{Training performance as a function of population size (left) and training set size (right). Note logarithmic axes.}
 	\label{fig:training-performance}
@@ -194,6 +194,14 @@ In most cases, the GPU implementation resulted in approximately an order of magn
 % ----------------------------------------------------------------------------
 \subsection{Classifier Results} \label{results}
 % ----------------------------------------------------------------------------
+The classifier was trained over 12000 generations with a final estimated lift of 4.51 (Figure~\ref{fig:evolution-lift}) out of a maximum lift of 5.
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.5\textwidth]{fig-evolution-lift}
+	\caption{Evolution of classifier lift. Note logarithmic generation number axis.}
+	\label{fig:evolution-lift}
+\end{figure}
 
 % ############################################################################
 \section{Conclusion} \label{concl}
