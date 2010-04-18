@@ -94,9 +94,9 @@ GA training of ANNs is very computationally-intensive. For each generation ($10^
 % ----------------------------------------------------------------------------
 NVidia's Compute Unified Device Architecture (CUDA) is a programming paradigm for massively parallel processors present in off-the-shelf graphics cards (GPUs). GPUs consist of many independent floating-point units, providing significant speedup to data-parallel compute-intensive applications. Each unit is connected to on-board memory using a very wide bus, enabling very high memory bandwidth provided certain particular memory access rules are respected. The combination of these features makes CUDA an ideal platform for GA-ANN training.
 
-The computational unit in CUDA is the "kernel", which is a C function executed in parallel on the grid of available compute units in the CUDA device. The function can request its position in this grid such that it can apply the same algorithm to values at different addresses in memory. In addition, if groups of kernels access sequential addresses in memory, the memory fetches are done in parallel, maximizing bus bandwidth utilization. This is referred to as coalesing.
-
 The CUDA programming model defines global and shared memory. Global memory is on-board but off-chip, expensive for random access and plentiful (100s of MB). Shared memory is on-chip, very fast for random access but very limited (16 KB).
+
+The computational unit in CUDA is the "kernel", which is a C function executed in parallel on the grid of available compute units in the CUDA device. The function can request its position in this grid such that it can apply the same algorithm to values at different addresses in memory. In addition, if groups of kernels access sequential addresses in global memory, the memory fetches are done in parallel, maximizing bus bandwidth utilization. This is referred to as memory access coalesing.
 
 % ----------------------------------------------------------------------------
 \subsection{Data Mining Contest} \label{contest}
