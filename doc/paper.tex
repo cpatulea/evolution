@@ -137,6 +137,11 @@ Filling this with text so that I can see what the document looks like when it is
 Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
 
 % ----------------------------------------------------------------------------
+\subsection{Computation of ANN Output Values} \label{implementation}
+% ----------------------------------------------------------------------------
+ANN output values are computed by reading feature values and applying the appropriate operations represented by the network topology and parameters. Feature data are organized to enable memory read coalescing. This part of the process is particularly well-suited to the CUDA architecture because it has a very high ratio of mathematical operations to memory accesses (160 multiplications, 4 exponentiations and 80 bytes of memory accesses for our ANN topology).
+
+% ----------------------------------------------------------------------------
 \subsection{Calculation of Top 20\% Threshold} \label{implementation}
 % ----------------------------------------------------------------------------
 To efficiently calculate the top 20\% threshold in a list of $n$ ANN output values, we can insert all values into a $k$-sized minheap where $k = 0.20 * n$, and take the root of the heap as the threshold. Each minheap insertion costs $O(\log k)$ time. Because device shared memory (16~KB) is not large enough for our value of $k$, we use $p$ passes of $\frac{k}{p}$-sized heaps with which we find the top 5\% threshold, then the top 10\%, etc. The overall complexity of our algorithm is $O(np \log \frac{k}{p})$. Parallelization is across individuals.
@@ -188,7 +193,7 @@ Filling this with text so that I can see what the document looks like when it is
 % ############################################################################
 \section{Conclusion} \label{concl}
 % ############################################################################
-Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
+We have presented an implementation of GA training of ANN classifiers for the CUDA platform for GPU programming. By carefully designing memory organization, algorithm computational load and memory access patterns, we have obtained a 10-fold speedup compared to a conventional sequential CPU implementation. Additional workaround were necessary for the low amount of fast on-chip GPU memory. Our method scales across population and training set sizes.
 
 % ############################################################################
 \section{Discussion} \label{disc}
