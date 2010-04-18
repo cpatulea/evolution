@@ -109,7 +109,7 @@ Our demonstration classifier is designed for the 2009 UC San Diego Data Mining C
 % ----------------------------------------------------------------------------
 \subsection{Preliminary Data Analysis} \label{prelim}
 % ----------------------------------------------------------------------------
-Fisher's linear discriminant \cite[\S 3.8.2]{Duda} obtains the 1D projection with best class separation by taking the eigenvector with the highest eigenvalue in a generalized eigenvector problem. We instead took the eigenvectors with the \emph{two} highest eigenvalues and plotted a 2D projection. This showed four defined clusters, which guided our choice of 4 hidden nodes with Gaussian radial basis functions.
+The maximization of the ratio of between-class scatter to within-class scatter can be posed as a generalized eigenvalue problem where the eigenvalue with the largest corresponding eigenvalue is Fisher's linear discriminant \cite[\S 3.8.2]{Duda}. By taking instead the \emph{two} highest eigenvalues and plotting a 2D projection, we found that the data exhibited 4 defined clusters. This  guided our choice of 4 hidden nodes with Gaussian radial basis functions.
 
 % ----------------------------------------------------------------------------
 \subsection{Data Preprocessing Steps} \label{preprocessing}
