@@ -49,11 +49,11 @@
 % Author(s) (no blank lines !)
 \author{
 % ############################################################################
-Catalin Patulea and Robert Peace\\
+Catalin Patulea, Robert Peace, and James Green\\
 School of Systems and Computer Engineering\\
 Carleton University\\
 Ottawa, Canada K1S 5B6\\
-{\em rpeace@sce.carleton.ca}
+{\em cat@vv.carleton.ca}, {\em rpeace@sce.carleton.ca}, {\em jrgreen@sce.carleton.ca}
 % ############################################################################
 } % end-authors
 % ############################################################################
@@ -80,7 +80,7 @@ We present an implementation of genetic algorithm (GA) training of artificial ne
 % ----------------------------------------------------------------------------
 Artificial neural networks (ANNs) are very flexible classifiers. By varying the network structure and parameters thereof, they can represent many aspects of the function to be approximated, including nonlinearities and high-order terms. However, the complexity of these classifiers implies that finding optimal parameters is a search in a very high-dimensional parameter space. This is known as an optimization problem, for which a wide variety of solutions are known.
 
-Some approaches to ANN training include gradient descent, Gauss--Newton and Levenberg-–Marquardt. Greedy approaches such as these seek extrema using the local behaviour of the error function and are thus susceptible to getting stuck at local extrema rather than finding the global extremum. Stochastic approaches asymptotically explore the entire search space, offering the promise of "eventually" reaching the global extremum.
+Some approaches to ANN training include gradient descent, Gauss--Newton and Levenberg-Marquardt. Greedy approaches such as these seek extrema using the local behaviour of the error function and are thus susceptible to getting stuck at local extrema rather than finding the global extremum. Stochastic approaches asymptotically explore the entire search space, offering the promise of "eventually" reaching the global extremum.
 
 % ----------------------------------------------------------------------------
 \subsection{Genetic Algorithms} \label{ga}
@@ -119,22 +119,24 @@ Item 1 is not very computationally intensive and was not parallelized. Items 2, 
 % ----------------------------------------------------------------------------
 \subsection{Preliminary Data Analysis} \label{prelim}
 % ----------------------------------------------------------------------------
-Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
 
 % ----------------------------------------------------------------------------
 \subsection{Data Preprocessing Steps} \label{preprocessing}
 % ----------------------------------------------------------------------------
-Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
+We have implemented an algorithm which, given a tab seperated values file, converts nominal feature values in the file into numeric values.  The algorithm replaces each nominal value in the file with the logarithm of the probability ratio between the positive and negative values observed given the nominal value.  As a result, meaningful numeric values can be extracted from arbitrary nominal values without domain knowledge relating to the values.
 
 % ----------------------------------------------------------------------------
 \subsection{Classifier Design} \label{design}
 % ----------------------------------------------------------------------------
-Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
+In order to adapt to varying data sets, we have developped a flexible ANN model, allowing for an arbitrary number of hidden layers and nodes per layer (within the limits of GPU memory). All hidden layers must contain the same number of nodes, however input and output weights may be adjusted through the genetic algorithm so as to effectively reduce the number of nodes on a specific layer.
+
+The genetic mutation and crossover operations which we have implemented are based on the methods defined by Montana and Lawrence \cite{GA-ANN}. Of the operations presented in this paper, the MUTATE NODES and CROSSOVER WEIGHTS operations were determined to provide an optimal balance between performance and classifier accuracy, and have been implemented in our experiments.
+
+Preliminary analysis of test data has shown that a projection of the data onto a 2D space which maximize class separation produces four distinct eliptical regions.  Therefore, test results have been obtained using an ANN which contains one layer of four radial basis function nodes.
 
 % ----------------------------------------------------------------------------
 \subsection{Classifier Implementation} \label{implementation}
 % ----------------------------------------------------------------------------
-Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
 
 % ----------------------------------------------------------------------------
 \subsection{Computation of ANN Output Values} \label{implementation}
@@ -188,7 +190,6 @@ In most cases, the GPU implementation resulted in approximately an order of magn
 % ----------------------------------------------------------------------------
 \subsection{Classifier Results} \label{results}
 % ----------------------------------------------------------------------------
-Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
 
 % ############################################################################
 \section{Conclusion} \label{concl}
@@ -198,12 +199,12 @@ We have presented an implementation of GA training of ANN classifiers for the CU
 % ############################################################################
 \section{Discussion} \label{disc}
 % ############################################################################
-Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
 
 % ----------------------------------------------------------------------------
 \subsection{Future Work} \label{future}
 % ----------------------------------------------------------------------------
-Filling this with text so that I can see what the document looks like when it is filled with text and to make sure that everything lines up nicely when it is full of text like this
+Montana and Lawrence \cite{GA-ANN} have demonstrated that a brief period of hill climbing after training with a genetic algorithm may increase the accuracy of classifier results. Thus, we could improve the accuracy of our methods by incorporating hill-climbing methods, such as the parallel backpropagation method described by Oei, Friedland and Janin \cite{backprop}.
+
 
 % ############################################################################
 % Bibliography
