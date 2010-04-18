@@ -11,7 +11,7 @@ from classify import SampleTester
 log = logging.getLogger("genops")
 
 POPSIZE = 50
-TOTAL_GENS = 5000
+TOTAL_GENS = 10000
 
 """
 Population generation / initializer.  Uses method from Montana and Davis.
@@ -167,7 +167,7 @@ def main():
   logging.basicConfig(level=logging.INFO, stream=sys.stdout)
   np.set_printoptions(precision=3, edgeitems=3, threshold=20)
 
-  random.seed(5108) # used by the GA
+  random.seed(80085) # used by the GA
   randSample = random.Random(input.SAMPLE_SEED) # used for data set sampling
 
   inp = input.Input("train3-std.tsv", randSample)

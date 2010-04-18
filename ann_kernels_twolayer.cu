@@ -6,12 +6,12 @@
 
 struct Parameters {
   float ih[NODES_PER_LAYER][19];			// input->hidden edge weight
-  float hh[NODES_PER_LAYER][NODES_PER_LAYER];// hidden->hidden edge weight
   float c[NODES_PER_LAYER][19];				// RBF center
-  float c2[NODES_PER_LAYER][NODES_PER_LAYER];// RBF center second layer
   float w[NODES_PER_LAYER];					// RBF width
   float w2[NODES_PER_LAYER];				// RBF width second layer
   float ho[NODES_PER_LAYER];				// hidden->output edge weight
+  float hh[NODES_PER_LAYER][NODES_PER_LAYER];// hidden->hidden edge weight
+  float c2[NODES_PER_LAYER][NODES_PER_LAYER];// RBF center second layer
 };
 
 __global__ void evaluate(
