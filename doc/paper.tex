@@ -113,7 +113,7 @@ Our demonstration classifier is designed for the 2009 UC San Diego Data Mining C
 % ----------------------------------------------------------------------------
 \subsection{Data Preprocessing Steps} \label{preprocessing}
 % ----------------------------------------------------------------------------
-We have implemented an algorithm which, given a tab seperated values file, converts nominal feature values in the file into numeric values.  The algorithm replaces each nominal value in the file with the logarithm of the probability ratio between the positive and negative values observed given the nominal value.  As a result, meaningful numeric values can be extracted from arbitrary nominal values without domain knowledge relating to the values.
+We have implemented an algorithm which, given a tab seperated values file, converts nominal feature values in the file into numeric values.  The algorithm replaces each nominal value in the file with the logarithm of the probability ratio between the positive and negative values observed given the nominal value.  As a result, meaningful numeric values can be extracted from arbitrary nominal values without domain knowledge relating to the values. This improves on the ortogonal coding method \cite[slide 17]{MLP-NominalCoding} by avoiding allocation of a disproportionate number of input nodes to nominal features.
 
 % ----------------------------------------------------------------------------
 \subsection{Classifier Design} \label{design}
