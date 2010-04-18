@@ -82,6 +82,6 @@ def main(popSizes, trainSizes):
       sys.stdout.write("\n")
 
 if __name__ == "__main__":
-  main([1, 10, 100, 1000, 10000], [1000])
+  main([1, 10, 100, 1000, 10000], [10000])
   #main([100], [100, 1000, 10000, 100000])
 
