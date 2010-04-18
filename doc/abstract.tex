@@ -79,12 +79,12 @@ Genetic algorithms (GAs) are a stochastic, evolutionary approach to machine lear
 % ----------------------------------------------------------------------------
 \subsection{Artificial Neural Networks} \label{ann}
 % ----------------------------------------------------------------------------
-ANNs are composed of a network of nodes connected by weighted directed edges. In a radial basis function (RBF) network architecture, nodes are organized in an input layer, a hidden layers, and an output layer. Each layer is fully connected to the next. The nodes in the hidden layer calculate the distance between their inputs and a centre parameter, and pass a weighted distance to an RBF. The output node is a summer weighted by the incoming edges. The output is a single real value which can be interpreted as a classification confidence. ANN computation is dominated by the multiplications at the edges, proportional in number to the number of features and the number of hidden nodes, and transcendental functions (exponentiation for Gaussian RBF) at the hidden nodes.
+ANNs are composed of a network of nodes connected by weighted directed edges. In a radial basis function (RBF) network architecture, nodes are organized in an input layer, hidden layers, and an output layer. Each layer is fully connected to the next. The nodes in the hidden layer calculate the distance between their inputs and a center parameter, and pass a weighted distance to an RBF. The output node is a summer weighted by the incoming edges. The output is a single real value which can be interpreted as a classification confidence. ANN computation is dominated by the multiplications at the edges, proportional to the number of features and the number of hidden nodes, and transcendental functions (exponentiation for Gaussian RBF) at the hidden nodes.  ANN training has been implemented previously on GPU hardware, however these efforts have focused on training through backpropagation \cite{backprop}.
 
 % ----------------------------------------------------------------------------
 \subsection{Genetic Algorithms} \label{ga}
 % ----------------------------------------------------------------------------
-Genetic algorithms (GAs) use multiple candidate solutions to simultaneously explore the search space of ANN parameters. The "individuals" are randomly mutated, mated and selected during each of several generations. Mutation and mating is done using a problem-specific representation of candidate solutions and "genetic operators." Selection is performed by applying the classifier to the training set and calculating a fitness value (classifier performance). The competitive bias imposed by selection attempts to mimic the "survival of the fittest" principle so often seen in Nature.
+Genetic algorithms (GAs) use multiple candidate solutions to simultaneously explore the search space of ANN parameters \cite{GA-ANN}. The "individuals" are randomly mutated, mated and selected during each of several generations. Mutation and mating is done using a problem-specific representation of candidate solutions and "genetic operators." Selection is performed by applying the classifier to the training set and calculating a fitness value (classifier performance). The competitive bias imposed by selection attempts to mimic the "survival of the fittest" principle so often seen in Nature.
 
 The computation required for GA training of ANNs is proportional to the number of generations ($10^1$-$10^4$), to the size of each generation ($10^1$-$10^2$ individuals) and to the training set size ($10^2$-$10^6$ instances).
 
@@ -96,7 +96,7 @@ NVidia's Compute Unified Device Architecture (CUDA) is a programming platform fo
 % ----------------------------------------------------------------------------
 \subsection{Data Mining Contest} \label{contest}
 % ----------------------------------------------------------------------------
-Our demonstration classifier is designed for the 2009 UC San Diego Data Mining Contest "E-commerce Transaction Anomaly Classification" and with training data thereof. The training data consist of 94682 instances of 19 mixed features with a 1:50 binary class imbalance. The evaluation metric is "lift at 20\%", which can be understood as the ratio of the true positive rate in the top 20\% ranked instances to the overall positive rate of the data set.
+Our demonstration classifier is designed for the 2009 UC San Diego Data Mining Contest "E-commerce Transaction Anomaly Classification" \cite{UCSG-Contest} and with training data thereof. The training data consist of 94682 instances of 19 mixed features with a 1:50 binary class imbalance. The evaluation metric is "lift at 20\%", which can be understood as the ratio of the true positive rate in the top 20\% ranked instances to the overall positive rate of the data set.
 
 % ############################################################################
 \section{Methods} \label{algimp}
@@ -113,12 +113,12 @@ Each GA iteration consists of the following steps:
 	\item Genetic algorithm processing -- mating, mutation, selection
 \end{enumerate}
 
-Items 1, 2 and 3 were all implemented on the CUDA platform. Performance results are given as the combined time for one generation of these three items but exclude one-time initialization. Item 4 is not very computationally intensive and was not parallelized. 
+Items 1, 2 and 3 were all implemented on the CUDA platform. Performance results are given as the combined time for one generation of these first three items but exclude one-time initialization. Item 4 is not very computationally intensive and was not parallelized. 
 
 % ----------------------------------------------------------------------------
 \subsection{Computation of ANN Output Values} \label{implementation}
 % ----------------------------------------------------------------------------
-ANN output values are computed by reading feature values and applying the appropriate operations represented by the network topology and parameters. Feature data are organized to enable memory read coalescing. This part of the process is particularly well-suited to the CUDA architecture because it has a very high ratio of mathematical operations to memory accesses (160 multiplications, 4 exponentiations and 80 bytes of memory accesses for our ANN topology).
+ANN output values are computed by reading feature values and applying the appropriate operations represented by the network topology and parameters. Feature data are organized to enable memory read coalescing. This part of the process is particularly well-suited to the CUDA architecture because it has a very high ratio of mathematical operations to memory accesses (160 multiplications, 4 exponentiations and 80 bytes of memory accesses for the ANN topology used during testing).
 
 % ----------------------------------------------------------------------------
 \subsection{Calculation of Top 20\% Threshold} \label{implementation}
@@ -168,12 +168,12 @@ In most cases, the GPU implementation resulted in approximately an order of magn
 % ############################################################################
 \section{Conclusion} \label{concl}
 % ############################################################################
-We have presented an implementation of GA training of ANN classifiers for the CUDA platform for GPU programming. By carefully designing memory organization, algorithm computational load and memory access patterns, we have obtained a 10-fold speedup compared to a conventional sequential CPU implementation. Additional workaround were necessary for the low amount of fast on-chip GPU memory. Our method scales across population and training set sizes.
+We have presented an implementation of GA training of ANN classifiers for the CUDA platform for GPU programming. By carefully designing memory organization, algorithm computational load and memory access patterns, we have obtained a 10-fold speedup compared to a conventional sequential CPU implementation. Additional workarounds were necessary for the low amount of fast on-chip GPU memory. Our method scales across population and training set sizes.
 
 % ############################################################################
 % Bibliography
 % ############################################################################
-\bibliographystyle{plain}
+\bibliographystyle{unsrt}
 \bibliography{bibliography}     %loads bibliography.bib
 
 % ============================================================================
