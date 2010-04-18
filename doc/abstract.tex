@@ -79,7 +79,7 @@ Genetic algorithms (GAs) are a stochastic, evolutionary approach to machine lear
 % ----------------------------------------------------------------------------
 \subsection{Artificial Neural Networks} \label{ann}
 % ----------------------------------------------------------------------------
-ANNs are composed of a network of nodes connected by weighted directed edges. In a radial basis function (RBF) network architecture, nodes are organized in an input layer, hidden layers, and an output layer. Each layer is fully connected to the next. The nodes in the hidden layer calculate the distance between their inputs and a center parameter, and pass a weighted distance to an RBF. The output node is a summer weighted by the incoming edges. The output is a single real value which can be interpreted as a classification confidence. ANN computation is dominated by the multiplications at the edges, proportional to the number of features and the number of hidden nodes, and transcendental functions (exponentiation for Gaussian RBF) at the hidden nodes.  ANN training has been implemented previously on GPU hardware, however these efforts have focused on training through backpropagation \cite{backprop}.
+ANNs are composed of nodes connected by weighted directed edges. In a radial basis function (RBF) network architecture, nodes are organized in an input layer, a hidden layer, and an output layer. Each layer is fully connected to the next. The nodes in the hidden layer calculate the distance between their inputs and a centre parameter, and pass a weighted distance to an RBF. The output node is a summer weighted by its incoming edges. The output is a single real value which is interpreted as a classification confidence. ANN computation is dominated by the number of multiplications at the edges, proportional to the number of features and the number of hidden nodes, and the transcendental functions (exponentiation for Gaussian RBF) at the hidden nodes.  ANN training has been implemented previously on GPU hardware, however these efforts have focused on training through backpropagation \cite{backprop}.
 
 % ----------------------------------------------------------------------------
 \subsection{Genetic Algorithms} \label{ga}
@@ -91,12 +91,12 @@ The computation required for GA training of ANNs is proportional to the number o
 % ----------------------------------------------------------------------------
 \subsection{The CUDA Platform} \label{cuda}
 % ----------------------------------------------------------------------------
-NVidia's Compute Unified Device Architecture (CUDA) is a programming platform for massively parallel GPUs found in off-the-shelf graphics cards. GPUs consist of many independent floating-point units, providing significant speedup to data-parallel compute-intensive applications \cite{cuda}. Each unit is connected to on-board memory using a very wide bus, enabling high memory bandwidth provided certain particular memory access rules are respected. The combination of these features makes CUDA an ideal platform for GA-ANN training.
+NVidia's Compute Unified Device Architecture (CUDA) is a programming platform for massively parallel GPUs found in off-the-shelf graphics cards. GPUs consist of many independent floating-point units, providing significant speedup to data-parallel compute-intensive applications \cite{cuda}. Each unit is connected to on-board memory using a very wide bus, enabling high memory bandwidth provided certain particular memory access rules are respected. These features make CUDA an ideal platform for GA-ANN training.
 
 % ----------------------------------------------------------------------------
 \subsection{Data Mining Contest} \label{contest}
 % ----------------------------------------------------------------------------
-Our demonstration classifier is designed for the 2009 UC San Diego Data Mining Contest "E-commerce Transaction Anomaly Classification" \cite{UCSG-Contest} and with training data thereof. The training data consist of 94682 instances of 19 mixed features with a 1:50 binary class imbalance. The evaluation metric is "lift at 20\%", which can be understood as the ratio of the true positive rate in the top 20\% ranked instances to the overall positive rate of the data set.
+Our demonstration classifier is designed for the 2009 UC San Diego Data Mining Contest "E-commerce Transaction Anomaly Classification" \cite{UCSG-Contest} and with training data thereof. The training data consist of 94682 instances with 19 mixed features and a 1:50 binary class imbalance. The evaluation metric is "lift at 20\%", which can be understood as the ratio of the true positive rate in the top 20\% ranked instances to the overall positive rate of the data set.
 
 % ############################################################################
 \section{Methods} \label{algimp}
@@ -113,22 +113,22 @@ Each GA iteration consists of the following steps:
 	\item Genetic algorithm processing -- mating, mutation, selection
 \end{enumerate}
 
-Items 1, 2 and 3 were all implemented on the CUDA platform. Performance results are given as the combined time for one generation of these first three items but exclude one-time initialization. Item 4 is not very computationally intensive and was not parallelized. 
+Items 1, 2 and 3 were all implemented on the CUDA platform. Performance results are given as the combined time for one generation of these three items but exclude one-time initialization. Item 4 is not very computationally intensive and was not parallelized. 
 
 % ----------------------------------------------------------------------------
 \subsection{Computation of ANN Output Values} \label{implementation}
 % ----------------------------------------------------------------------------
-ANN output values are computed by reading feature values and applying the appropriate operations represented by the network topology and parameters. Feature data are organized to enable memory read coalescing. This part of the process is particularly well-suited to the CUDA architecture because it has a very high ratio of mathematical operations to memory accesses (160 multiplications, 4 exponentiations and 80 bytes of memory accesses for the ANN topology used during testing).
+ANN output values are computed by reading feature values and applying the appropriate operations represented by the network topology and parameters. Feature data are organized to enable memory read coalescing. This part of the process is particularly well-suited to the CUDA architecture because it has a very high ratio of mathematical operations to memory accesses (160 multiplications, 4 exponentiations and 80 bytes of memory accesses for the ANN topology used during testing). Parallelization is across individuals as well as training instances, which allows this part of the process to scale particularly well with hardware capabilities.
 
 % ----------------------------------------------------------------------------
 \subsection{Calculation of Top 20\% Threshold} \label{implementation}
 % ----------------------------------------------------------------------------
-To efficiently calculate the top 20\% threshold in a list of $n$ ANN output values, we can insert all values into a $k$-sized minheap where $k = 0.20 * n$, and take the root of the heap as the threshold. Each minheap insertion costs $O(\log k)$ time. Because device shared memory (16~KB) is not large enough for our value of $k$, we instead use $p$ passes of $\frac{k}{p}$-sized heaps with which we find the top 5\% threshold, then the top 10\%, etc. The overall complexity of our algorithm is $O(np \log \frac{k}{p})$. Parallelization is across individuals.
+To efficiently calculate the top 20\% threshold in a list of $n$ unsorted ANN output values, we can insert all values into a $k$-sized binary minheap where $k = 0.20 * n$, and take the root of the heap as the threshold. Each minheap insertion costs $O(\log k)$ time. Because device shared memory (16~KB) is not large enough for our value of $k$, we instead use $p$ passes of $\frac{k}{p}$-sized heaps with which we find the top 5\% threshold, then the top 10\%, etc. The overall complexity of our algorithm is $O(np \log \frac{k}{p})$. Parallelization is across individuals.
 
 % ----------------------------------------------------------------------------
 \subsection{Counting of Positives Above Threshold} \label{implementation}
 % ----------------------------------------------------------------------------
-By keeping positive instances first in our training set, we avoid the need to consult the class of each instance (saving a costly global memory read). We simply iterate over the first $numPositives$ ANN outputs and count the outputs over the individual's 20\% threshold. Parallelization is across both individuals and groups of outputs. For each individual, we keep m counters which accumulate counts for indexes $i$ where $i \equiv 0 \bmod{m}$, $i \equiv 1 \bmod{m}$, ..., $i \equiv m - 1 \bmod{m}$. This enables parallelization even when there are not enough individuals in the population to fully occupy the device. Each batch of $m$ kernels accesses $m$ sequential locations in memory, which results in coalesced reads.
+By keeping positive instances first in our training set, we avoid the need to consult the class of each instance (global memory reads are costly). We simply iterate over the first $numPositives$ ANN outputs and count the outputs that are greater than the individual's 20\% threshold. Parallelization is across both individuals and groups of outputs. For each individual, we keep m counters which accumulate counts for output indices $i$ where $i \equiv 0 \bmod{m}$, $i \equiv 1 \bmod{m}$, ..., $i \equiv m - 1 \bmod{m}$. This enables parallelization even when there are not enough individuals in the population to fully occupy the device. Each batch of $m$ kernels accesses $m$ sequential locations in memory, which results in coalesced reads.
 
 % ############################################################################
 \section{Results} \label{results}
