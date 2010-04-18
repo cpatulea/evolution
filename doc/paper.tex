@@ -70,6 +70,7 @@ We present an implementation of genetic algorithm (GA) training of artificial ne
 % ############################################################################
 \section{Introduction} \label{intro}
 % ############################################################################
+Genetic algorithms (GAs) are a stochastic, evolutionary approach to machine learning classifier training. While greedy methods can get stuck at local extrema, GAs  are theoretically capable of asymptotically reaching the global optimum. However, because they require the testing of a population of classifiers at each iteration, and the algorithm is repeated for many generations, they are extremely compute-intensive. This is exacerbated by the use of artificial neural networks (ANNs) as the classifier because ANNs themselves are very compute-intensive. Compared to a traditional sequential implementation of GA training of ANNs, the use of graphical processing units (GPUs) as parallel processors provides significant performance improvements, at a fraction of the price of alternatives such as cluster computing. GPUs, however, use a specialized programming paradigm which must be taken into account to leverage their full processing power. In this paper, we show an implementation of GA training of ANNs which achieves an order-of-magnitude speedup over a sequential algorithm.
 
 % ############################################################################
 \section{Background} \label{background}
@@ -78,43 +79,41 @@ We present an implementation of genetic algorithm (GA) training of artificial ne
 % ----------------------------------------------------------------------------
 \subsection{Artificial Neural Networks} \label{ann}
 % ----------------------------------------------------------------------------
-Artificial neural networks (ANNs) are very flexible classifiers. By varying the network structure and parameters thereof, they can represent many aspects of the function to be approximated, including nonlinearities and high-order terms. However, the complexity of these classifiers implies that finding optimal parameters is a search in a very high-dimensional parameter space. This is known as an optimization problem, for which a wide variety of solutions are known.
-
-Some approaches to ANN training include gradient descent, Gauss--Newton and Levenberg-Marquardt. Greedy approaches such as these seek extrema using the local behaviour of the error function and are thus susceptible to getting stuck at local extrema rather than finding the global extremum. Stochastic approaches asymptotically explore the entire search space, offering the promise of "eventually" reaching the global extremum.
+ANNs are composed of a network of nodes connected by weighted directed edges. In a radial basis function (RBF) network architecture, nodes are organized in an input layer, a hidden layers, and an output layer. Each layer is fully connected to the next. The nodes in the hidden layer calculate the distance between their inputs and a centre parameter, and pass a weighted distance to an RBF. The output node is a summer weighted by the incoming edges. The output is a single real value which can be interpreted as a classification confidence. ANN computation is dominated by the multiplications at the edges, proportional in number to the number of features (19) and the number of hidden nodes (4) and transcendental functions (exponentiation for Gaussian RBF) at the hidden nodes.
 
 % ----------------------------------------------------------------------------
 \subsection{Genetic Algorithms} \label{ga}
 % ----------------------------------------------------------------------------
-Genetic algorithms (GAs) rely on multiple candidate solutions to simultaneously explore the search space. The "individuals" are randomly mutated, mated and selected during each of several generations. Mutation and mating is done using a problem-specific representation of candidate solutions and "genetic operators." Selection is governed by a fitness function (classifier performance). The competitive bias imposed by selection attempts to mimic the "survival of the fittest" principle so often seen in Nature.
+Genetic algorithms (GAs) use multiple candidate solutions to simultaneously explore the search space of ANN parameters. The "individuals" are randomly mutated, mated and selected during each of several generations. Mutation and mating is done using a problem-specific representation of candidate solutions and "genetic operators." Selection is performed by applying the classifier to the training set and calculating a fitness value (classifier performance). The competitive bias imposed by selection attempts to mimic the "survival of the fittest" principle so often seen in Nature.
 
-GA training of ANNs is very computationally-intensive. For each generation ($10^1$--$10^2$) individuals), the fitness of each individual is calculated by applying each neural network to the entire training set ($10^2$--$10^6$ instances) and taking the classification accuracy for that network. Each ANN evaluation itself requires a large number of multiplications (which increases with the number of features and hidden nodes) in addition to evaluation of transcendentals for the more common node activation functions. Thus, a CPU implementation of GA training of ANNs for any but the smallest networks and training sets is infeasible.
+The computation required for GA training of ANNs is proportional to the number of generations ($10^1$-$10^4$), to the size of each generation ($10^1$-$10^2$ individuals) and to the training set size ($10^2$-$10^6$ instances).
 
 % ----------------------------------------------------------------------------
 \subsection{The CUDA Platform} \label{cuda}
 % ----------------------------------------------------------------------------
-NVidia's Compute Unified Device Architecture (CUDA) is a programming paradigm for massively parallel processors present in off-the-shelf graphics cards (GPUs). GPUs consist of many independent floating-point units, providing significant speedup to data-parallel compute-intensive applications. Each unit is connected to on-board memory using a very wide bus, enabling very high memory bandwidth provided certain particular memory access rules are respected. The combination of these features makes CUDA an ideal platform for GA-ANN training.
+NVidia's Compute Unified Device Architecture (CUDA) is a programming paradigm for massively parallel GPUs found in off-the-shelf graphics cards. GPUs consist of many independent floating-point units, providing significant speedup to data-parallel compute-intensive applications. Each unit is connected to on-board memory using a very wide bus, enabling high memory bandwidth provided certain particular memory access rules are respected. The combination of these features makes CUDA an ideal platform for GA-ANN training.
 
 The CUDA programming model defines global and shared memory. Global memory is on-board but off-chip, expensive for random access and plentiful (100s of MB). Shared memory is on-chip, very fast for random access but very limited (16 KB).
 
-The computational unit in CUDA is the "kernel", which is a C function executed in parallel on the grid of available compute units in the CUDA device. The function can request its position in this grid such that it can apply the same algorithm to values at different addresses in memory. In addition, if groups of kernels access sequential addresses in global memory, the memory fetches are done in parallel, maximizing bus bandwidth utilization. This is referred to as memory access coalesing.
+The computational unit in CUDA is the "kernel", which is a C function executed in parallel on the grid of available compute units in the CUDA device. The function is aware of its position in this grid such that it can apply the same algorithm to data at different addresses in memory. In addition, if groups of kernels access sequential addresses in global memory, the memory fetches are combined into a single transaction, maximizing bus bandwidth utilization. This is referred to as memory access coalescing.
 
 % ----------------------------------------------------------------------------
 \subsection{Data Mining Contest} \label{contest}
 % ----------------------------------------------------------------------------
-The data for our classifier was provided by the 2009 UC San Diego Data Mining Contest "E-commerce Transaction Anomaly Classification" and consist of 94682 instances of 19 features with a 1:50 class imbalance. The evaluation metric was "lift at 20\%", which can be understood as the ratio of the true positive rate in the top 20\% of instances ranked by the classifier to the overall positive rate of the original data set. This metric was directly used as the fitness of each classifier being evaluated by the GA. ANN outputs are treated as confidence values and used for ranking.
+Our demonstration classifier is designed for the 2009 UC San Diego Data Mining Contest "E-commerce Transaction Anomaly Classification" and with training data thereof. The training data consist of 94682 instances of 19 mixed features with a 1:50 binary class imbalance. The evaluation metric is "lift at 20\%", which can be understood as the ratio of the true positive rate in the top 20\% ranked instances to the overall positive rate of the data set.
 
 % ############################################################################
 \section{Methods} \label{algimp}
 % ############################################################################
-The training process can be divided in several parts which are repeated for each generation until sufficient classifier performance is obtained.
+Each GA iteration consists of the following steps:
 \begin{enumerate}
-	\item Genetic algorithm processing -- initialization, mating, mutation, selection
 	\item Computation of ANN outputs
 	\item Calculation of top 20\% threshold value (each individual)
 	\item Counting of the positive instances with outputs above this threshold (each individual)
+	\item Genetic algorithm processing -- mating, mutation, selection
 \end{enumerate}
 
-Item 1 is not very computationally intensive and was not parallelized. Items 2, 3 and 4 were all implemented on the CUDA platform. Performance results are given as the combined time for one generation of these last three items but exclude one-time initialization.
+Items 1, 2 and 3 were all implemented on the CUDA platform. Performance results are given as the combined time for one generation of these last three items but exclude one-time initialization. Item 4 is not very computationally intensive and was not parallelized. 
 
 % ----------------------------------------------------------------------------
 \subsection{Preliminary Data Analysis} \label{prelim}
@@ -134,6 +133,9 @@ The genetic mutation and crossover operations which we have implemented are base
 
 Preliminary analysis of test data has shown that a projection of the data onto a 2D space which maximize class separation produces four distinct eliptical regions.  Therefore, test results have been obtained using an ANN which contains one layer of four radial basis function nodes.
 
+% Where does this fit?
+%  ANN outputs are treated as confidence values and used for ranking, and the lift of a classifier was directly used as the its fitness value for the GA.
+
 % ----------------------------------------------------------------------------
 \subsection{Classifier Implementation} \label{implementation}
 % ----------------------------------------------------------------------------
@@ -146,7 +148,7 @@ ANN output values are computed by reading feature values and applying the approp
 % ----------------------------------------------------------------------------
 \subsection{Calculation of Top 20\% Threshold} \label{implementation}
 % ----------------------------------------------------------------------------
-To efficiently calculate the top 20\% threshold in a list of $n$ ANN output values, we can insert all values into a $k$-sized minheap where $k = 0.20 * n$, and take the root of the heap as the threshold. Each minheap insertion costs $O(\log k)$ time. Because device shared memory (16~KB) is not large enough for our value of $k$, we use $p$ passes of $\frac{k}{p}$-sized heaps with which we find the top 5\% threshold, then the top 10\%, etc. The overall complexity of our algorithm is $O(np \log \frac{k}{p})$. Parallelization is across individuals.
+To efficiently calculate the top 20\% threshold in a list of $n$ ANN output values, we can insert all values into a $k$-sized minheap where $k = 0.20 * n$, and take the root of the heap as the threshold. Each minheap insertion costs $O(\log k)$ time. Because device shared memory (16~KB) is not large enough for our value of $k$, we instead use $p$ passes of $\frac{k}{p}$-sized heaps with which we find the top 5\% threshold, then the top 10\%, etc. The overall complexity of our algorithm is $O(np \log \frac{k}{p})$. Parallelization is across individuals.
 
 % ----------------------------------------------------------------------------
 \subsection{Counting of Positives Above Threshold} \label{implementation}
