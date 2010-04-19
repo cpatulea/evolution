@@ -86,7 +86,7 @@ ANNs are composed of nodes connected by weighted directed edges. In a feed-forwa
 % ----------------------------------------------------------------------------
 Genetic algorithms (GAs) use multiple candidate solutions to simultaneously explore the search space of ANN parameters \cite{GA-ANN}. The candidate ANNs are randomly mutated, mated and selected during each of several generations. Mutation and mating is done using a problem-specific representation of candidate solutions and "genetic operators." Selection requires calculating the fitness of each candidate ANN (a classifier accuracy metric such as sensitivity) then preferentially selecting candidate ANNs based on fitness. The competitive bias imposed by selection attempts to mimic the "survival of the fittest" principle so often seen in Nature.  Because GAs blindly search a solution space and ANNs can be of arbitrary complexity, this technique is suitable for data mining applications using large or complex data sets.
 
-The computation required for GA training of ANNs is proportional to the number of generations ($10^1$-$10^4$), to the size of each generation ($10^1$-$10^2$ individuals) and to the size of the data set ($10^2$-$10^6$ instances).
+The computation required for GA training of ANNs is proportional to the number of generations ($10^1$-$10^4$), to the size of each generation ($10^1$-$10^2$ candidates) and to the size of the data set ($10^2$-$10^6$ instances).
 
 % ----------------------------------------------------------------------------
 \subsection{The CUDA Platform} \label{cuda}
@@ -102,7 +102,7 @@ Our demonstration classifier is designed for the 2009 UC San Diego Data Mining C
 \section{Implementation of GA Training of ANNs} \label{algimp}
 % ############################################################################
 
-Our GA begins by generating an initial population of random individuals, each of which is a set parameters describing one ANN. Feature values for all training instances are loaded into GPU global memory in preparation for ANN computations. Then, the following steps are executed in sequence for each generation of the GA:
+Our GA begins by generating an initial population of random candidate ANNs, each of which is a set parameters describing one ANN. Feature values for all training instances are loaded into GPU global memory in preparation for ANN computations. Then, the following steps are executed in sequence for each generation of the GA:
 
 \begin{enumerate}
 	\item Compute the ANN output corresponding to each training instance, as calculated by each candidate ANN in the population.
@@ -132,9 +132,9 @@ The overall complexity of our algorithm is $O(np \log \frac{k}{p})$. Each top 20
 % ----------------------------------------------------------------------------
 To compute the number of truly positive instances in the top 20\% of scores, if training instances are unsorted, we must read from memory each instance's true class and corresponding ANN output value and compare the output value to the candidate's threshold. For $n$ training instances, this requires $2 * n$ memory accesses. However, by keeping the $n_p$ positive instances first in memory, we need only read the first $n_p$ ANN outputs, knowing that they correspond to the positive instances. This reduces the number of memory accesses to $n_p$, which is significant particularly for training data with low positive rate (in our case, $2 * n = 189364$ and $n_p = 2080$). Sorting the training instances by class is a cheap operation and can be done by the host CPU as part of initialization.
 
-Counting of positive instances above the candidate's threshold is performed independently, in parallel, for each candidate. However, because there may not be enough individuals to fully occupy the GPU, we also split the counting process for each individual into 256 independent sub-counts: the first sub-counter processes training instances 0, 256, 512, \ldots, the second sub-counter instances 1, 257, 513, \ldots, such that the sub-counts can be executed in parallel. The striped assignment of training instance indices to sub-counters is necessary to take advantage of the full memory bandwidth of the GPU. The host CPU then aggregates the sub-counts by summing, which is a very lightweight operation.
+Counting of positive instances above the candidate's threshold is performed independently, in parallel, for each candidate. However, because there may not be enough candidates to fully occupy the GPU, we also split the counting process for each candidate into 256 independent sub-counts: the first sub-counter processes training instances 0, 256, 512, \ldots, the second sub-counter instances 1, 257, 513, \ldots, such that the sub-counts can be executed in parallel. The striped assignment of training instance indices to sub-counters is necessary to take advantage of the full memory bandwidth of the GPU. The host CPU then aggregates the sub-counts by summing, which is a very lightweight operation.
 
-Finally, each count is divided by the number of positive instances to give a positive rate in the top 20\%. Then, the ratio of this positive rate to the overall positive rate is the lift of each individual. These operations are also comparatively lightweight and executed on the host CPU.
+Finally, each count is divided by the number of positive instances to give a positive rate in the top 20\%. Then, the ratio of this positive rate to the overall positive rate is the lift of each candidate. These operations are also comparatively lightweight and executed on the host CPU.
 
 % ############################################################################
 \section{Results} \label{results}
@@ -163,7 +163,7 @@ To evaluate the performance of our system, we compared execution time of equival
 % ----------------------------------------------------------------------------
 \subsection{Performance Results} \label{performance}
 % ----------------------------------------------------------------------------
-In most cases, the GPU implementation resulted in approximately an order of magnitude speedup over a CPU implementation (Figure~\ref{fig:training-performance}). For population sizes below 10, observed speedup decreases and no speedup is observed in the single-individual case. This is due to GPU initialization and data copying dominating execution time. However, in these cases, both implementation are still quite fast (20~ms per generation).
+In most cases, the GPU implementation resulted in approximately an order of magnitude speedup over a CPU implementation (Figure~\ref{fig:training-performance}). For population sizes below 10, observed speedup decreases and no speedup is observed in the single-candidate case. This is due to GPU initialization and data copying dominating execution time. However, in these cases, both implementations are still quite fast (20~ms per generation).
 
 \begin{figure}[h]
 	\centering
@@ -175,7 +175,7 @@ In most cases, the GPU implementation resulted in approximately an order of magn
 % ############################################################################
 \section{Conclusion} \label{concl}
 % ############################################################################
-We have presented an implementation of GA training of ANN classifiers for the CUDA platform for GPU programming. By carefully designing memory organization, algorithm computational load and memory access patterns, we have obtained a 10-fold speedup compared to a conventional sequential CPU implementation. A multipass approach was required for part of our system to compensate for the limited amount of fast on-chip GPU memory. Our method scales across population and training set sizes and is expected to be useful in other data intensive machine learning and data mining tasks.
+We have presented an implementation of GA training of feedforward ANN classifiers for the CUDA platform for GPU programming. By carefully designing memory organization, algorithm computational load and memory access patterns, we have obtained a 10-fold speedup compared to a conventional sequential CPU implementation. A multipass approach was required for part of our system to compensate for the limited amount of fast on-chip GPU memory. Our method scales across population and training set sizes and is expected to be useful in other data intensive machine learning and data mining tasks.
 
 % ############################################################################
 % Bibliography
