@@ -42,7 +42,7 @@
 % Title
 % ############################################################################
 
-\title{Accelerating Genetic ANN Training using the CUDA Platform}
+\title{CUDA-accelerated Genetic Feedforward-ANN Training for Data Mining}
 
 
 % ############################################################################
@@ -64,13 +64,13 @@ Ottawa, Canada K1S 5B6\\
 % Abstract
 % ############################################################################
 \begin{abstract}
-We present an implementation of genetic algorithm (GA) training of artificial neural networks (ANNs) targeting commodity graphics cards (GPUs). By carefully mapping the problem onto the unique GPU architecture, we achieve order-of-magnitude speedup over a conventional CPU implementation. Furthermore, we show that the speedup is consistent across a wide range of population and training set sizes. This performance boost enables classifier design to span a wider range of population sizes and number of generations affording better classifiers and improved understanding of long-term trends in genetic algorithm convergence. Finally, we demonstrate this method in the context of the 2009 UC San Diego Data Mining Contest.
+We present an implementation of genetic algorithm (GA) training of artificial neural networks (ANNs) targeting commodity graphics cards (GPUs). By carefully mapping the problem onto the unique GPU architecture, we achieve order-of-magnitude speedup over a conventional CPU implementation. Furthermore, we show that the speedup is consistent across a wide range of data set sizes, making this implementation ideal for large data sets. This performance boost enables the genetic algorithm to search a larger subset of the solution space, which results in a more accurate pattern classifier. Finally, we demonstrate this method in the context of the 2009 UC San Diego Data Mining Contest, achieving a world-class lift on a data set of 94682 e-commerce transactions.
 \end{abstract}
 
 % ############################################################################
 \section{Introduction} \label{intro}
 % ############################################################################
-Genetic algorithms (GAs) are a stochastic, evolutionary approach to machine learning classifier training. While greedy methods can get stuck at local extrema, GAs  are theoretically capable of asymptotically reaching the global optimum. However, because they require the testing of a population of classifiers at each iteration, and the algorithm is repeated for many generations, they are extremely compute-intensive. This is exacerbated by the use of artificial neural networks (ANNs) as the classifier because ANNs themselves are very compute-intensive. Compared to a traditional sequential implementation of GA training of ANNs, the use of graphical processing units (GPUs) as parallel processors provides significant performance improvements, at a fraction of the price of alternatives such as cluster computing. GPUs, however, use a specialized programming paradigm which must be taken into account to leverage their full processing power. In this paper, we show an implementation of GA training of ANNs which achieves an order-of-magnitude speedup over a sequential algorithm.
+Genetic algorithms (GAs) are a stochastic, evolutionary approach to machine learning classifier training. While greedy methods can get stuck at local extrema, GAs  are theoretically capable of asymptotically reaching the global optimum \cite{GA-ANN}. However, because they require the evaluation of approximately 50 to 100 classifiers at each iteration, and the algorithm is repeated for several thousand generations, they are extremely compute-intensive. This is exacerbated by the use of artificial neural networks (ANNs) as the classifier because ANNs themselves are very compute-intensive. Compared to a traditional sequential implementation of GA training of ANNs, the use of graphical processing units (GPUs) as parallel processors provides significant performance improvements, at a fraction of the price of alternatives such as cluster computing. GPUs, however, use a specialized programming paradigm which must be taken into account to leverage their full processing power. In this paper, we show an implementation of GA training of ANNs which achieves an order-of-magnitude speedup over a sequential algorithm.
 
 % ############################################################################
 \section{Background} \label{background}
@@ -79,36 +79,36 @@ Genetic algorithms (GAs) are a stochastic, evolutionary approach to machine lear
 % ----------------------------------------------------------------------------
 \subsection{Artificial Neural Networks} \label{ann}
 % ----------------------------------------------------------------------------
-ANNs are composed of nodes connected by weighted directed edges. In a radial basis function (RBF) network architecture, nodes are organized in an input layer, a hidden layer, and an output layer. Each layer is fully connected to the next. The nodes in the hidden layer calculate the distance between their inputs and a centre parameter, and pass a weighted distance to an RBF. The output node is a summer weighted by its incoming edges. The output is a single real value which is interpreted as a classification confidence. ANN computation is dominated by the number of multiplications at the edges, proportional to the number of features and the number of hidden nodes, and the transcendental functions (exponentiation for Gaussian RBF) at the hidden nodes.  ANN training has been implemented previously on GPU hardware, however these efforts have focused on training through backpropagation \cite{backprop}.
+ANNs are composed of nodes connected by weighted directed edges. In a feed-forward network architecture, nodes are organized in an input layer, several hidden layers, and an output layer. Each layer is fully connected to the next. Each of the hidden nodes at hidden layer $n$ perform a transcendental function with inputs equal to the outputs of layer $n-1$ each multiplied by the weight on the edge through which they are fed. In a radial basis function (RBF) network, the nodes in the hidden layer calculate the distance between their inputs and a centre vector, and pass a weighted distance to a RBF. Nodes in a gaussian function network perform a similar operation with a gaussian function in place of the RBF. The output node is typically linear, computing a weighted sum of its inputs. The output is a single real value which is interpreted as a classification confidence. ANN computation is dominated by the number of multiplications at the edges between nodes, proportional to the number of features and the number of hidden nodes, and by the transcendental functions (exponentiation for RBF) at the hidden nodes.  ANN training has been implemented previously on GPU hardware, however these efforts have focused on training through backpropagation \cite{backprop} as opposed to genetic algorithms.
 
 % ----------------------------------------------------------------------------
 \subsection{Genetic Algorithms} \label{ga}
 % ----------------------------------------------------------------------------
-Genetic algorithms (GAs) use multiple candidate solutions to simultaneously explore the search space of ANN parameters \cite{GA-ANN}. The "individuals" are randomly mutated, mated and selected during each of several generations. Mutation and mating is done using a problem-specific representation of candidate solutions and "genetic operators." Selection is performed by applying the classifier to the training set and calculating a fitness value (classifier performance). The competitive bias imposed by selection attempts to mimic the "survival of the fittest" principle so often seen in Nature.
+Genetic algorithms (GAs) use multiple candidate solutions to simultaneously explore the search space of ANN parameters \cite{GA-ANN}. The "individuals" are randomly mutated, mated and selected during each of several generations. Mutation and mating is done using a problem-specific representation of candidate solutions and "genetic operators." Selection is performed by applying the classifier to the training set and calculating a fitness value (classifier accuracy). The competitive bias imposed by selection attempts to mimic the "survival of the fittest" principle so often seen in Nature.  Because GAs blindly search a solution space and ANNs can be of arbitrary complexity, this technique is suitable for data mining applications using large or complex data sets.
 
-The computation required for GA training of ANNs is proportional to the number of generations ($10^1$-$10^4$), to the size of each generation ($10^1$-$10^2$ individuals) and to the training set size ($10^2$-$10^6$ instances).
+The computation required for GA training of ANNs is proportional to the number of generations ($10^1$-$10^4$), to the size of each generation ($10^1$-$10^2$ individuals) and to the size of the data set ($10^2$-$10^6$ instances).
 
 % ----------------------------------------------------------------------------
 \subsection{The CUDA Platform} \label{cuda}
 % ----------------------------------------------------------------------------
-NVidia's Compute Unified Device Architecture (CUDA) is a programming platform for massively parallel GPUs found in off-the-shelf graphics cards. GPUs consist of many independent floating-point units, providing significant speedup to data-parallel compute-intensive applications \cite{cuda}. Each unit is connected to on-board memory using a very wide bus, enabling high memory bandwidth provided certain particular memory access rules are respected. These features make CUDA an ideal platform for GA-ANN training.
+NVidia's Compute Unified Device Architecture (CUDA) is a programming platform for massively parallel GPUs found in off-the-shelf graphics cards. GPUs consist of several dozen independent floating-point units, providing significant speedup to data-parallel compute-intensive applications \cite{cuda}. Each unit is connected to on-board memory using a very wide bus, enabling high memory bandwidth provided certain memory access rules are respected. These features make CUDA an ideal platform for GA-ANN training.
 
 % ----------------------------------------------------------------------------
-\subsection{Data Mining Contest} \label{contest}
+\subsection{Sample Application} \label{contest}
 % ----------------------------------------------------------------------------
-Our demonstration classifier is designed for the 2009 UC San Diego Data Mining Contest "E-commerce Transaction Anomaly Classification" \cite{UCSG-Contest} and with training data thereof. The training data consist of 94682 instances with 19 mixed features and a 1:50 binary class imbalance. The evaluation metric is "lift at 20\%", which can be understood as the ratio of the true positive rate in the top 20\% ranked instances to the overall positive rate of the data set.
+Our demonstration classifier is designed for the 2009 UC San Diego Data Mining Contest "E-commerce Transaction Anomaly Classification" \cite{UCSG-Contest} and with training data thereof. The training data consist of 94682 instances with 19 features of mixed types and a 1:50 binary class imbalance. The evaluation metric is "lift at 20\%", which can be understood as the ratio of the true positive rate in the top 20\% ranked instances to the overall positive rate of the data set.  Lift at 20\% is commonly used in marketing research in order to select the subset of a population which is most likely to respond to solicitation.
 
 % ############################################################################
 \section{Methods} \label{algimp}
 % ############################################################################
 
 % ----------------------------------------------------------------------------
-\subsection{Classifier Implementation} \label{implementation}
+\subsection{Implementation of GA Training of ANNs} \label{implementation}
 % ----------------------------------------------------------------------------
-Each GA iteration consists of the following steps:
+Each iteration of the GA (referred to as a generation) consists of the following steps:
 \begin{enumerate}
-	\item Computation of ANN outputs
-	\item Calculation of top 20\% threshold value (each individual)
+	\item Computation of ANN outputs, $i.e.$ classification confidence for each instance in the data set as calculated by each candidate ANN in the generation
+	\item Calculation of top 20\% threshold value for each candidate ANN
 	\item Counting of the positive instances with outputs above this threshold (each individual)
 	\item Genetic algorithm processing -- mating, mutation, selection
 \end{enumerate}
