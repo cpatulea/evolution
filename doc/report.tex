@@ -123,7 +123,15 @@ The genetic mutation and crossover operations which we have implemented are base
 % ----------------------------------------------------------------------------
 \subsection{Preliminary Data Analysis} \label{prelim}
 % ----------------------------------------------------------------------------
-The maximization of the ratio of between-class scatter to within-class scatter can be posed as a generalized eigenvalue problem where the eigenvalue with the largest corresponding eigenvalue is Fisher's linear discriminant \cite[\S 3.8.2]{Duda}. By taking instead the \emph{two} highest eigenvalues and plotting a 2D projection, we found that the data exhibited 4 defined clusters. This  guided our choice of 4 hidden nodes with Gaussian radial basis functions.
+To get a first idea of the separability of the data, we took an approach similar to Fisher's linear discriminant. This discriminant finds the 1D projection of the data which maximizes class separation, defined as the ratio of between-class variance and within-class variance. The problem of finding Fisher's linear discriminant can be seen as a generalized eigenvalue problem where the eigenvector with the large eigenvalue is the desired projection \cite[\S 3.8.2]{Duda}.
+To gain more insight into the higher-dimensional properties of the data, and because 2D visualization is practical, we instead used the eigenvectors with the \emph{two} highest eigenvalues and formed a 2D projection of the data (Figure~\ref{fig:fishers-2d}). The resulting four approximately-Gaussian clusters guided our decision to use a radial basis function network with four Gaussian hidden nodes.
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=\textwidth]{fishers_2d}
+	\caption{Projection of original data set on hyperplane formed by the two eigenvectors with the largest eigenvalues.}
+	\label{fig:fishers-2d}
+\end{figure}
 
 % ----------------------------------------------------------------------------
 \subsection{Data Preprocessing Steps} \label{preprocessing}
