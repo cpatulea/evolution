@@ -220,7 +220,7 @@ In most cases, the GPU implementation resulted in approximately an order of magn
 % ----------------------------------------------------------------------------
 \subsection{Classification Performance} \label{results}
 % ----------------------------------------------------------------------------
-The classifier was trained over 12000 generations; the fitness metric during this training was lift at 20\% calculated on a training set which consisted of 70\% of the data set, chosen at random during initialization.  After each generation, the candidate ANN with the highest fitness value was used to classify 100 random subsets of the hold-out data set, and the average of the lift at 20\% of these classifications was recorded.  Figure~\ref{fig:evolution-lift} demonstrates experimental results across 12,000 generations of population 50. The final estimated lift is 4.51 out of a maximum lift of 5.
+The classifier was trained over 12000 generations; the fitness metric during this training was lift at 20\% calculated on a training set which consisted of 70\% of the data set, chosen at random during initialization.  After each generation, the candidate ANN with the highest fitness value was used to classify 100 random subsets of the hold-out data set (each consisting of exactly one half of the hold-out data set), and the average of the lift at 20\% of these classifications was recorded.  Figure~\ref{fig:evolution-lift} demonstrates experimental results across 12,000 generations of population 50. The final estimated lift is 4.51 out of a maximum lift of 5.
 
 \begin{figure}[h]
 	\centering
@@ -229,7 +229,13 @@ The classifier was trained over 12000 generations; the fitness metric during thi
 	\label{fig:evolution-lift}
 \end{figure}
 
-When applied to the 2009 UC San Diego Data Mining Contest blind test data set, the resulting classifier produced a lift at 20\% value of 4.031, placing 35th in the world for classification of this data set. Due to the stochastic nature of genetic algorithms and the contest rules which state that contestants may test any number of candidate classifiers, it is likely that repeated entry into this contest would result in a higher ranking.
+When applied to the 2009 UC San Diego Data Mining Contest blind test data set, the resulting classifier produced a lift at 20\% value of 4.031, placing 35th in the world for classification of this data set. Due to the stochastic nature of genetic algorithms and the contest rules which state that contestants may test any number of candidate classifiers, it is likely that repeated entry into this contest would result in a higher ranking. The discrepency between the estimated performance and actual performance on the blind test data set can be attributed to the following:
+\begin{enumerate}
+	\item Discrepency in test set size: the estimated performance measurements were done on sets of approximately 14000 patterns while the blind test data set has approximately 36000 patterns.
+	\item Discrepency in class balance: when splitting the data set into training and hold-out data sets, class balance was not enforced for either of the sets. The blind test data set was known to have the same class imbalance as the given data set. Therefore, it is possible that the data used to collect experimental data had a class imbalance which did not reflect the blind test data set.
+	\item Nominal values unique to the blind test data set: It is possible that patterns with nominal values that do not appear in the training data set could cause misclassification, however, the pre-processing step which converts nominal values into numeric values accounts for values which have not been seen previously.
+\end{enumerate}
+
 % ############################################################################
 \section{Conclusion} \label{concl}
 % ############################################################################
