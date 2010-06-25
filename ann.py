@@ -83,14 +83,14 @@ class ANN(object):
     )
 
     # Heap size in each pass is limited by shared memory per multiprocessor.
-    sharedBytesPerBlock = tools.DeviceData().shared_memory
+    # At most 256 bytes are reserved for passing kernel parameters
+    # (see Programming Guide 3.0 section B.1.4).
+    sharedBytesPerBlock = tools.DeviceData().shared_memory - 256
     floatBytes = np.dtype(np.float32).itemsize
     log.debug("max shared memory per block: %d bytes (%d floats)",
       sharedBytesPerBlock, sharedBytesPerBlock / floatBytes)
     
-    self.maxHeapFloats = (sharedBytesPerBlock / floatBytes
-      * 99/100 # max size allocations fail on a GTX 275
-    )
+    self.maxHeapFloats = sharedBytesPerBlock / floatBytes
     maxHeapBytes = self.maxHeapFloats * floatBytes
 
     log.debug("using heap size: %d bytes (%d floats)",
