@@ -53,7 +53,7 @@ Catalin Patulea, Robert Peace, and James Green\\
 School of Systems and Computer Engineering\\
 Carleton University\\
 Ottawa, Canada K1S 5B6\\
-{\em cat@vv.carleton.ca}, {\em rpeace@sce.carleton.ca}, {\em jrgreen@sce.carleton.ca}
+{\em cpatulea@sce.carleton.ca}, {\em rpeace@sce.carleton.ca}, {\em jrgreen@sce.carleton.ca}
 % ############################################################################
 } % end-authors
 % ############################################################################
@@ -70,7 +70,7 @@ We present an implementation of genetic algorithm (GA) training of feedforward a
 % ############################################################################
 \section{Introduction} \label{intro}
 % ############################################################################
-Genetic algorithms (GAs) are a stochastic, evolutionary approach to machine learning for pattern classification. While greedy methods will get stuck at local extrema, GAs  are theoretically capable of asymptotically reaching the global optimum \cite{GA-ANN}. However, because they require the evaluation of approximately 50 to 100 classifiers at each iteration, and the algorithm is repeated for several thousand iterations, they are extremely compute-intensive. This is exacerbated by the use of artificial neural networks (ANNs) as the classifier because ANNs themselves are very compute-intensive.
+Genetic algorithms (GAs) are a stochastic, evolutionary approach to machine learning for pattern classification. While greedy methods will get stuck at local extrema, GAs  are theoretically capable of asymptotically reaching the global optimum \cite{GA-ANN}. However, because they require the evaluation of approximately 50 to 100 classifiers at each iteration, and the algorithm is repeated for several thousand iterations, they are extremely compute-intensive. The use of artificial neural networks (ANNs) as the classifier exacerbates the computational requirements because ANNs themselves are very compute-intensive.
 
 Compared to a traditional sequential implementation of GA training of ANNs, the use of graphical processing units (GPUs) as parallel processors provides significant performance improvements at a fraction of the price of alternatives such as cluster computing. GPUs, however, use a specialized programming paradigm which must be taken into account to leverage their full processing power. In this report, we show an implementation of GA training of ANNs which achieves an order-of-magnitude speedup over a sequential algorithm.
 
@@ -82,6 +82,14 @@ Compared to a traditional sequential implementation of GA training of ANNs, the 
 \subsection{Artificial Neural Networks} \label{ann}
 % ----------------------------------------------------------------------------
 ANNs are composed of nodes connected by weighted directed edges. In a feed-forward network architecture, nodes are organized into an input layer, one or more hidden layers, and an output layer. Each layer is fully connected to the next. Figure~\ref{fig:ann-chromosome} demonstrates the feedfoward ANN structure. Each of the hidden nodes at hidden layer $n$ perform a transcendental function with inputs equal to the outputs of layer $n-1$ each multiplied by the weight associated with the edge through which they are fed from layer $n-1$ to layer $n$. In a radial basis function (RBF) network, the nodes in each hidden layer calculate the distance between their inputs and a centre vector, and pass a weighted distance to a RBF. Nodes in a sigmoid function network perform a similar operation with a sigmoid function in place of the RBF. The output node is typically linear, computing a weighted sum of its inputs. The output of the ANN is a single real value which is interpreted as a classification confidence. ANN computation is dominated by the number of multiplications at the directed edges, proportional to the number of features in the data set and the number of hidden nodes, and by the transcendental functions at the hidden nodes, which are typically exponentiations.  ANN training has been implemented previously on GPU hardware, however these efforts have focused on training through backpropagation \cite{backprop} as opposed to genetic algorithms.
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=\textwidth]{ann-chromosome}
+	\caption{ANN structure and related chromosome design.  Each element in the chromosome is a real-valued number.}
+	\label{fig:ann-chromosome}
+\end{figure}
+
 
 % ----------------------------------------------------------------------------
 \subsection{Genetic Algorithms as ANN Training Agents} \label{ga}
@@ -118,13 +126,6 @@ The classifier receives as inputs real-valued features which are standardized pr
 
 For a single-layer ANN, as used in our final design, each candidate ANN is represented by a chromosome which consists of four arrays of real-valued numbers. Edge weights between input nodes and hidden layers, edge weights between hidden and output layers, width values for RBFs at hidden nodes and center values for RBFs at hidden nodes are all encoded, and can take on any real value. Figure~\ref{fig:ann-chromosome} demonstrates the chromosome structure and its relation to ANN structure.  This structure is simple yet powerful; individual edges are 'removed' by the genetic algorithm when their weight is set to zero and nodes are 'removed' by the genetic algorithm when their RBF width value is set to zero.  Thus, while the topology of the ANN is limited to those with $m$ layers and $n$ nodes per layer, the genetic algorithm searches all topologies with $m$ layers and between 0 and $n$ nodes per layer.
 
-\begin{figure}[h]
-	\centering
-	\includegraphics[width=\textwidth]{ann-chromosome}
-	\caption{ANN structure and related chromosome design.  Each element in the chromosome is a real-valued number.}
-	\label{fig:ann-chromosome}
-\end{figure}
-
 The genetic mutation and crossover operations which we have implemented are based on the methods defined by Montana and Lawrence \cite{GA-ANN}. Of the operations presented in this paper, the MUTATE NODES and CROSSOVER WEIGHTS operations were determined to provide an optimal balance between performance and classifier accuracy, and have been implemented in all of our experiments.
 
 % ----------------------------------------------------------------------------
@@ -132,7 +133,7 @@ The genetic mutation and crossover operations which we have implemented are base
 % ----------------------------------------------------------------------------
 In order to handle nominal feature values in data sets, we have implemented an algorithm which, given a tab separated values (TSV) file, converts nominal feature values in the data set into numeric values.  The algorithm replaces each nominal value in the data set with the logarithm of the probability ratio between the positive and negative classifications observed given the nominal value.  This is inspired from the discriminant function of a Bayesian classifier trained only on that particular feature. As a result, meaningful numeric values can be extracted from nominal values without domain knowledge relating to the values. This improves on the traditional orthogonal coding method \cite[slide 17]{MLP-NominalCoding} by avoiding allocation of a disproportionate number of input nodes to nominal features.  The logarithm of the ratio of all positive classifications to all negative classifications is assigned to nominal values which do not appear sufficiently in the data set and for values which appear only in blind test data sets; this prevents the classifier from assigning significant values to nominal values for which little or no inference can be done.
 
-Due to the inherent limitations of floating-point (FP) representation of real values, the range of inputs to the ANN plays a crucial part in the numerical stability of the classifier during training and during classification. In particular, our use of exponential functions resulted in an ANN very sensitive to output saturation. In these cases, while the input to the \texttt{expf} function is well within the range of representible FP numbers (take for example feature 11 which has a maximum of 8193), the mathematical output of the exponentiation is too large to be represented in FP. This causes degenerate output values such as infinity or NaN (not a number). These special values propagate through the ANN edges to produce degenerate values at the output of the classifier.
+Due to the inherent limitations of floating-point (FP) representation of real values, the range of inputs to the ANN plays a crucial part in the numerical stability of the classifier during training and during classification. In particular, our use of exponential functions resulted in an ANN very sensitive to output saturation. In these cases, while the input to the \texttt{expf} function is well within the range of representible FP numbersthe mathematical output of the exponentiation is too large to be represented in FP. This causes degenerate output values such as infinity or NaN (not a number). These special values propagate through the ANN edges to produce degenerate values at the output of the classifier.
 
 To avoid this issue, we standardize the data before training and before classification. For each feature individually, we estimate the 10\textsuperscript{th} and 90\textsuperscript{th} percentiles of the feature values. We then shift and scale the values such that 80\% of the resulting values are in the range $(-1, 1)$. This standardization method was chosen for its robustness against outliers. After standardization, the range of inputs to \texttt{expf} is narrow enough to always produce a valid FP value at the output. The standardization does not affect the classification itself because there are scaling and shifting parameters within the ANN (input to hidden edge weights and hidden center parameters, respectively) which are already part of the search space.
 
@@ -201,7 +202,7 @@ To evaluate the performance of our system, we compared execution time of equival
 % ----------------------------------------------------------------------------
 \subsection{Performance Results} \label{performance}
 % ----------------------------------------------------------------------------
-In most cases, the GPU implementation resulted in approximately an order of magnitude speedup over a serial implementation of equivalent code running on a modern x86 desktop processor (Figure~\ref{fig:training-performance}). For population sizes below 10, observed speedup decreases and no speedup is observed in the single-candidate case. This is due to GPU initialization and data copying dominating execution time. However, in these cases, both implementations are still quite fast (20~ms per generation).
+In most cases, the GPU implementation resulted in approximately an order of magnitude speedup over a serial implementation of equivalent code running on a modern x86 desktop processor (Figure~\ref{fig:training-performance}). For population sizes below 10, observed speedup decreases and no speedup is observed in the single-candidate case. This is due to GPU kernel invocation overhead and data copying dominating execution time. However, in these cases, both implementations are still quite fast (20~ms per generation).
 
 \begin{figure}[h]
 	\centering
