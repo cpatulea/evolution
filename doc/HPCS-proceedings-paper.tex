@@ -4,7 +4,7 @@
 % ---------------------------------------------------------------------------
 % to create Type I fonts type "dvips -P cmz -t letter <filename>"
 % ===========================================================================
-\documentclass[11pt]{article}       %--- LATEX 2e base
+\documentclass[letterpaper]{jpconf}       %--- LATEX 2e base
 \usepackage{latexsym}               %--- LATEX 2e base
 %---------------- Wide format -----------------------------------------------
 \textwidth=6in \textheight=9in \oddsidemargin=0.25in
@@ -42,23 +42,19 @@
 % Title
 % ############################################################################
 
-\title{CUDA-accelerated Genetic Feedforward-ANN Training for Data Mining}
+\title{CUDA-accelerated genetic feedforward-ANN training for data mining}
 
 
 % ############################################################################
 % Author(s) (no blank lines !)
-\author{
+\author{Catalin Patulea, Robert Peace and James Green}
+\address{School of Systems and Computer Engineering,
+Carleton University,
+Ottawa, Canada K1S 5B6}
+\ead{cpatulea@sce.carleton.ca, rpeace@sce.carleton.ca, jrgreen@sce.carleton.ca}
 % ############################################################################
-Catalin Patulea, Robert Peace, and James Green\\
-School of Systems and Computer Engineering\\
-Carleton University\\
-Ottawa, Canada K1S 5B6\\
-{\em cpatulea@sce.carleton.ca}, {\em rpeace@sce.carleton.ca}, {\em jrgreen@sce.carleton.ca}
+% end-authors
 % ############################################################################
-} % end-authors
-% ############################################################################
-
-\maketitle
 
 % ############################################################################
 % Abstract
@@ -233,12 +229,12 @@ We have presented an implementation of GA training of feedforward ANN classifier
 % ############################################################################
 Montana and Lawrence \cite{GA-ANN} have demonstrated that a brief period of hill climbing after training with a genetic algorithm may increase the accuracy of classifier results. Thus, we could improve the accuracy of our methods by incorporating hill-climbing methods, such as the parallel backpropagation method described by Oei, Friedland and Janin \cite{backprop}.
 
-In addition, parallelization methods of genetic algorithms involving multiple populations \cite{Alba1999} may interact favourably with data mining applications.  Seperate populations may be trained on different subsets of the training data, allowing for a more thorough search of the solution space which the training set presents.
+In addition, parallelization methods of genetic algorithms involving multiple populations \cite{Alba1999} may interact favourably with data mining applications.  Seperate populations may be trained on different subsets of the training data, allowing for a more thorough search of the solution space which the training set presents.\\
 
 % ############################################################################
 % Bibliography
 % ############################################################################
-\bibliographystyle{unsrt}
+\bibliographystyle{iopart-num}
 \bibliography{bibliography}     %loads bibliography.bib
 
 % ============================================================================
