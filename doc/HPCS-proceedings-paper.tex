@@ -80,12 +80,11 @@ Compared to a traditional sequential implementation of GA training of ANNs, the 
 ANNs are composed of nodes connected by weighted directed edges. In a feed-forward network architecture, nodes are organized into an input layer, one or more hidden layers, and an output layer. Each layer is fully connected to the next. Figure~\ref{fig:ann-chromosome} demonstrates the feedfoward ANN structure. Each of the hidden nodes at hidden layer $n$ perform a transcendental function with inputs equal to the outputs of layer $n-1$ each multiplied by the weight associated with the edge through which they are fed from layer $n-1$ to layer $n$. In a radial basis function (RBF) network, the nodes in each hidden layer calculate the distance between their inputs and a centre vector, and pass a weighted distance to a RBF. Nodes in a sigmoid function network perform a similar operation with a sigmoid function in place of the RBF. The output node is typically linear, computing a weighted sum of its inputs. The output of the ANN is a single real value which is interpreted as a classification confidence. ANN computation is dominated by the number of multiplications at the directed edges, proportional to the number of features in the data set and the number of hidden nodes, and by the transcendental functions at the hidden nodes, which are typically exponentiations.  ANN training has been implemented previously on GPU hardware, however these efforts have focused on training through backpropagation \cite{backprop} as opposed to genetic algorithms.
 
 \begin{figure}[h]
-	\centering
+	\begin{center}
 	\includegraphics[width=\textwidth]{ann-chromosome}
-	\caption{ANN structure and related chromosome design.  Each element in the chromosome is a real-valued number.}
-	\label{fig:ann-chromosome}
+	\caption{\label{fig:ann-chromosome}ANN structure and related chromosome design.  Each element in the chromosome is a real-valued number.}
+	\end{center}
 \end{figure}
-
 
 % ----------------------------------------------------------------------------
 \subsection{Genetic Algorithms as ANN Training Agents} \label{ga}
@@ -182,17 +181,18 @@ We first present the computational performance of our algorithm for classifier t
 To evaluate the performance of our system, we compared execution time of equivalent algorithms running on commodity desktop CPUs and GPUs. Each series represents one type of experimental hardware (Table~\ref{tab:experimental-hardware}). Each data point is an average over 10 runs of the algorithm with the same parameters.
 
 \begin{table}[h]
-	\centering
+	\caption{\label{tab:experimental-hardware}Experimental hardware. Free RAM is OS-reported available memory before running each experiment.}
+	\begin{center}
 	\begin{tabular}{lllll}
-	\textbf{Legend Label} & \textbf{Hardware} & \textbf{Clock} & \textbf{Free RAM} & \textbf{OS} \\
-	\hline
-	x86    & x86 Desktop Processor  & 2.66~GHz & 7.5~GB & Linux 2.6 (64-bit) \\
-	GTX260 & NVidia GTX260 GPU      & 1.24~GHz & N/A    & Windows 7 (64-bit) \\
-	GTX275 & NVidia GTX275 GPU      & 1.4~GHz  & N/A    & Linux 2.6 (64-bit) \\
-	\hline
+	\br
+	Legend Label&Hardware&Clock&Free RAM&OS\\
+	\mr
+	x86   &x86 Desktop Processor&2.66~GHz&7.5~GB&Linux 2.6 (64-bit) \\
+	GTX260&NVidia GTX260 GPU    &1.24~GHz&N/A   &Windows 7 (64-bit) \\
+	GTX275&NVidia GTX275 GPU    &1.4~GHz &N/A   &Linux 2.6 (64-bit) \\
+	\br
 	\end{tabular}
-	\caption{Experimental hardware. Free RAM is OS-reported available memory before running each experiment.}
-	\label{tab:experimental-hardware}
+	\end{center}
 \end{table}
 
 % ----------------------------------------------------------------------------
@@ -201,10 +201,10 @@ To evaluate the performance of our system, we compared execution time of equival
 In most cases, the GPU implementation resulted in approximately an order of magnitude speedup over a serial implementation of equivalent code running on a modern x86 desktop processor (Figure~\ref{fig:training-performance}). For population sizes below 10, observed speedup decreases and no speedup is observed in the single-candidate case. This is due to GPU kernel invocation overhead and data copying dominating execution time. However, in these cases, both implementations are still quite fast (20~ms per generation).
 
 \begin{figure}[h]
-	\centering
+	\begin{center}
 	\includegraphics[width=\textwidth]{fig-performance-genericx86}
-	\caption{Training performance as a function of population size (left) and training set size (right). Note logarithmic axes.}
-	\label{fig:training-performance}
+	\caption{\label{fig:training-performance}Training performance as a function of population size (left) and training set size (right). Note logarithmic axes.}
+	\end{center}
 \end{figure}
 
 % ----------------------------------------------------------------------------
@@ -213,10 +213,10 @@ In most cases, the GPU implementation resulted in approximately an order of magn
 The classifier was trained over 12000 generations; the fitness metric during this training was lift at 20\% calculated on a training set which consisted of 70\% of the data set, chosen at random during initialization.  After each generation, the candidate ANN with the highest fitness value was used to classify 20 random subsets of the hold-out data set (each consisting of exactly one half of the hold-out data set), and the average of the lift at 20\% of these classifications was recorded.  Figure~\ref{fig:evolution-lift} demonstrates experimental results across 12,000 generations of population 50. The final estimated lift is 4.51 out of a maximum lift of 5.
 
 \begin{figure}[h]
-	\centering
+	\begin{center}
 	\includegraphics[width=0.5\textwidth]{fig-evolution-lift}
-	\caption{Evolution of classifier lift. Note logarithmic generation number axis.}
-	\label{fig:evolution-lift}
+	\caption{\label{fig:evolution-lift}Evolution of classifier lift. Note logarithmic generation number axis.}
+	\end{center}
 \end{figure}
 
 % ############################################################################
