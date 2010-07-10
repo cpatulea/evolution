@@ -182,18 +182,18 @@ We first present the computational performance of our algorithm for classifier t
 % ----------------------------------------------------------------------------
 \subsection{Experimental Setup} \label{experiment}
 % ----------------------------------------------------------------------------
-To evaluate the performance of our system, we compared execution time of equivalent algorithms running on commodity desktop CPUs and GPUs. Each series represents one type of experimental hardware (Table~\ref{tab:experimental-hardware}). Each data point is an average over 10 runs of the algorithm with the same parameters.
+To evaluate the performance of our system, we compared execution time of a sequential algorithm on a commodity CPU and an optimized algorithm on commodity GPUs. The goal was to estimate the speedup of our algorithm with respect to sequential without using the CPU's multiprocessing capabilities. Each series represents one type of experimental hardware (Table~\ref{tab:experimental-hardware}). Each data point is an average over 10 runs of the algorithm with the same parameters.
 
 \begin{table}[h]
 	\caption{\label{tab:experimental-hardware}Experimental hardware. Free RAM is OS-reported available memory before running each experiment.}
 	\begin{center}
 	\begin{tabular}{lllll}
 	\br
-	Legend Label&Hardware&Clock&Free RAM&OS\\
+	Legend Label & Hardware & Clock & Free RAM & OS\\
 	\mr
-	x86   &x86 Desktop Processor&2.66~GHz&7.5~GB&Linux 2.6 (64-bit) \\
-	GTX260&NVidia GTX260 GPU    &1.24~GHz&N/A   &Windows 7 (64-bit) \\
-	GTX275&NVidia GTX275 GPU    &1.4~GHz &N/A   &Linux 2.6 (64-bit) \\
+	x86    & Intel Core 2 Q9450 CPU & 2.66~GHz & 7.5~GB & Linux 2.6 (64-bit) \\
+	GTX260 & NVidia GTX260 GPU      & 1.24~GHz & N/A    & Windows 7 (64-bit) \\
+	GTX275 & NVidia GTX275 GPU      & 1.4~GHz  & N/A    & Linux 2.6 (64-bit) \\
 	\br
 	\end{tabular}
 	\end{center}
